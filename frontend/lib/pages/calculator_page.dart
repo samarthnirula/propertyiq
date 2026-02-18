@@ -12,6 +12,7 @@ class CalculatorPage extends StatefulWidget {
 }
 
 class _CalculatorPageState extends State<CalculatorPage> {
+  // --- STATE & CONTROLLERS ---
   final price = TextEditingController();
   final down = TextEditingController();
   final rate = TextEditingController();
@@ -19,9 +20,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final monthlyExpenses = TextEditingController();
   final oneTimeExpenses = TextEditingController();
 
-  String message = "Enter values and press Calculate";
+  String message = "Enter details to analyze your investment";
   CalcResponse? result;
   bool loading = false;
+
+  // --- LOGIC FUNCTIONS ---
 
   String? _validateInputs() {
     if (price.text.isEmpty ||
@@ -76,7 +79,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
       setState(() {
         result = res;
-        message = "Calculated successfully. Tap 'Save to Compare' to store.";
+        message = "Calculated successfully.";
       });
     } catch (e) {
       setState(() => message = "Error: $e");
@@ -92,8 +95,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
     PropertyStore.saved.add(PropertyItem(label: label, calc: result!));
 
     setState(() {
-      message = "Saved as $label. Go to Compare tab to select 2 properties.";
+      message = "Saved as $label. Check Compare tab.";
     });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Saved as $label"),
+          backgroundColor: Colors.black87,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void clearAll() {
@@ -106,101 +119,215 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
     setState(() {
       result = null;
-      message = "Enter values and press Calculate";
+      message = "Enter details to analyze your investment";
     });
   }
 
-  Widget field(String label, TextEditingController c) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: TextField(
-        controller: c,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(labelText: label),
-      ),
-    );
-  }
-
-  Widget resultRow(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // --- UI BUILD METHOD ---
+  
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 18)),
-          Text(
-            value,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: valueColor),
+          _buildSectionHeader("Property Details", Icons.home_work_outlined),
+          const SizedBox(height: 10),
+          _buildFormContainer([
+            _styledField("Purchase Price", price, Icons.attach_money),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _styledField("Down Payment", down, Icons.money_off)),
+                const SizedBox(width: 16),
+                Expanded(child: _styledField("Interest Rate %", rate, Icons.percent)),
+              ],
+            ),
+          ]),
+
+          const SizedBox(height: 24),
+          // Reverted Icon: payments_outlined
+          _buildSectionHeader("Monthly & Upfront Costs", Icons.payments_outlined),
+          const SizedBox(height: 10),
+          _buildFormContainer([
+            // Reverted Icon: add_home_outlined
+            _styledField("Expected Monthly Rent", rent, Icons.add_home_outlined),
+            const SizedBox(height: 16),
+            _styledField("Monthly Expenses", monthlyExpenses, Icons.receipt_long),
+            const SizedBox(height: 16),
+            _styledField("Upfront Costs", oneTimeExpenses, Icons.build_circle_outlined),
+          ]),
+
+         const SizedBox(height: 30),
+
+          // Action Buttons 
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black, 
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: loading ? null : calculate,
+              child: loading 
+                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                : const Text("Calculate Investment", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
           ),
+
+          const SizedBox(height: 16),
+          Center(
+            child: TextButton(
+              onPressed: loading ? null : clearAll,
+              child: Text("Clear All Fields", style: TextStyle(color: Colors.grey[600])),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+          Center(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: message.contains("Error") ? Colors.red : Colors.grey[500],
+                fontSize: 13,
+              ),
+            ),
+          ),
+
+          if (result != null) _buildResultDashboard(result!),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final res = result;
+  // --- WIDGET HELPERS ---
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        children: [
-          field("Price", price),
-          field("Down Payment", down),
-          field("Interest Rate (%)", rate),
-          field("Monthly Rent", rent),
-          field("Monthly Expenses (Tax/Insurance/Repairs)", monthlyExpenses),
-          field("One-time Upfront Cost (Closing/Repairs)", oneTimeExpenses),
-          const SizedBox(height: 14),
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.blueAccent), // Kept blue accent for icons
+        const SizedBox(width: 8),
+        Text(
+          title, 
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)
+        ),
+      ],
+    );
+  }
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildFormContainer(List<Widget> children) {
+    return Column(children: children);
+  }
+
+  Widget _styledField(String label, TextEditingController c, IconData icon) {
+    return TextField(
+      controller: c,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20, color: Colors.grey[500]),
+      ),
+    );
+  }
+
+  Widget _buildResultDashboard(CalcResponse res) {
+    final bool isPositive = res.cashFlow >= 0;
+    final Color mainColor = isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444); 
+    
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
+            ],
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
             children: [
-              ElevatedButton(
-                onPressed: loading ? null : calculate,
-                child: Text(loading ? "Working..." : "Calculate"),
+              Text("Estimated Cash Flow", style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+              const SizedBox(height: 8),
+              Text(
+                "\$${res.cashFlow.toStringAsFixed(2)}",
+                style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: mainColor),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                onPressed: loading ? null : clearAll,
-                child: const Text("Clear"),
+              const SizedBox(height: 24),
+              
+              Divider(color: Colors.grey.shade100),
+              const SizedBox(height: 16),
+              
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                childAspectRatio: 2.2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                children: [
+                  _summaryItem("ROI", "${res.roi.toStringAsFixed(2)}%", Colors.blueAccent),
+                  _summaryItem("Cap Rate", "${res.capRate.toStringAsFixed(2)}%", Colors.purpleAccent),
+                  _summaryItem("Mortgage", "\$${res.mortgagePayment.toStringAsFixed(0)}", Colors.orangeAccent),
+                  _summaryItem("Breakeven", res.breakevenYears == null ? "N/A" : "${res.breakevenYears!.toStringAsFixed(1)} yrs", Colors.teal),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.bookmark_border),
+                  label: const Text("Save to Compare"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.black87,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: saveToCompare,
+                ),
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
 
-          const SizedBox(height: 12),
-          Text(message, style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 16),
-
-          if (res != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    resultRow("Mortgage", "\$${res.mortgagePayment.toStringAsFixed(2)}"),
-                    resultRow(
-                      "Cash Flow",
-                      "\$${res.cashFlow.toStringAsFixed(2)}/mo",
-                      valueColor: res.cashFlow >= 0 ? Colors.greenAccent : Colors.redAccent,
-                    ),
-                    resultRow("Cap Rate", "${res.capRate.toStringAsFixed(2)}%"),
-                    resultRow("ROI", "${res.roi.toStringAsFixed(2)}%"),
-                    resultRow(
-                      "Breakeven",
-                      res.breakevenYears == null
-                          ? "N/A"
-                          : "${res.breakevenYears!.toStringAsFixed(2)} years",
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: saveToCompare,
-                      child: const Text("Save to Compare"),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+  Widget _summaryItem(String label, String value, Color accent) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(backgroundColor: accent.withOpacity(0.2), radius: 4),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
         ],
       ),
     );
