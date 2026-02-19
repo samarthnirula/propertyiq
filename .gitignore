@@ -1,0 +1,9 @@
+.env 
+
+#Python generate files
+__pycache__/
+*.py[co]
+
+#virtual environments
+venv/
+.venv/
