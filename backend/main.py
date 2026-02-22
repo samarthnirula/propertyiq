@@ -2,7 +2,6 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-<<<<<<< HEAD
 import requests
 import os
 from dotenv import load_dotenv
@@ -13,7 +12,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 from services.listing_search import search_listings  # UPDATED
-=======
 from census import Census
 from us import states
 import pandas as pd
@@ -33,7 +31,6 @@ headers = {
 warnings.filterwarnings('ignore') #ignore warnings from data retrieval
 censusdate_api_key = os.getenv("CENSUSDATA_API_KEY")
 c = Census(censusdate_api_key)
->>>>>>> a7275b8c9d76d832cbe67b421cf71b9c2857e5ce
 
 app = FastAPI()
 
@@ -108,7 +105,6 @@ def calculate(req: CalcRequest):
         "breakeven_years": round(breakeven_years, 2) if breakeven_years else None,
     }
 
-<<<<<<< HEAD
 
 @app.get("/autocomplete")
 def autocomplete(q: str = Query(..., min_length=3)):
@@ -197,7 +193,8 @@ def debug_simplyrets(limit: int = 5, offset: int = 0):
         return {"count": len(items), "sample": items[:1]}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
-=======
+    
+    
 #using census python package to retrieve median household income based off a given zipcode
 def get_median_household_income(zipcode):
     dataset = "acs5" #5-year American Community Survey for ZCTA data
@@ -243,4 +240,3 @@ def get_property_price(address):
     return property_price
 
 
->>>>>>> a7275b8c9d76d832cbe67b421cf71b9c2857e5ce

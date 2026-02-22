@@ -1,7 +1,5 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../models/address_suggesstion.dart';
 import '../models/area_stats.dart';
 import '../services/api_service.dart';
@@ -332,7 +330,7 @@ class _ComparePageState extends State<ComparePage> {
                 itemBuilder: (context, index) {
                   final s = suggestions[index];
                   return ListTile(
-                    title: Text((s.formatted ?? "").isEmpty ? "(Unknown address)" : s.formatted!),
+                    title: Text((s.formatted ?? "").isEmpty ? "(Unknown address)" : s.formatted),
                     onTap: () => onSelectSuggestion(s),
                   );
                 },

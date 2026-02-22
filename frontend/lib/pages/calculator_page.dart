@@ -17,6 +17,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final down = TextEditingController();
   final rate = TextEditingController();
   final rent = TextEditingController();
+  final bathroom = TextEditingController();
+  final bedroom = TextEditingController();
+  final area = TextEditingController();
+  final zipcode = TextEditingController();
+  final year = TextEditingController();
   final monthlyExpenses = TextEditingController();
   final oneTimeExpenses = TextEditingController();
 
@@ -141,7 +146,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
               children: [
                 Expanded(child: _styledField("Down Payment", down, Icons.money_off)),
                 const SizedBox(width: 16),
-                Expanded(child: _styledField("Interest Rate %", rate, Icons.percent)),
+                Expanded(child: _styledField("Interest Rate", rate, Icons.percent)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _styledField("Zipcode", zipcode, Icons.location_on)),
+                const SizedBox(width: 16),
+                Expanded(child: _styledField("Year Built", year, Icons.build)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _styledField("Bedrooms", bedroom, Icons.bed)),
+                const SizedBox(width: 16),
+                Expanded(child: _styledField("Bathrooms", bathroom, Icons.bathtub)),
+                const SizedBox(width: 16),
+                Expanded(child: _styledField("Area (sq ft)", area, Icons.square_foot)),
               ],
             ),
           ]),
