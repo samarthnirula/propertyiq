@@ -42,8 +42,7 @@ class _RootNavigatorState extends State<RootNavigator> {
     setState(() => selectedIndex = index);
   }
 
-  // Refresh current page: simplest approach is to rebuild the current page
-  // by changing a key. This forces the widget tree to remount.
+
   Key refreshKey = UniqueKey();
   void refreshCurrentPage() {
     setState(() {

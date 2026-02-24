@@ -1,1 +1,14 @@
-propertyiq/backend/.env
+backend/.env
+backend/__pycache__/
+.vscode/
+*.pyc
+.env 
+
+#Python generate files
+__pycache__/
+*.py[co]
+
+#virtual environments
+venv/
+.venv/
+
