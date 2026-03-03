@@ -1,19 +1,34 @@
 import 'package:flutter/material.dart';
 
-ThemeData appTheme() {
+enum AppTheme { classicLight, softBlue, deepDark, midnight }
+
+ThemeData getAppTheme(AppTheme selection) {
+  switch (selection) {
+    case AppTheme.classicLight:
+      return _buildTheme(Brightness.light, Colors.blueAccent, Colors.white);
+    case AppTheme.softBlue:
+      return _buildTheme(Brightness.light, Colors.cyan, const Color(0xFFF0F7F9));
+    case AppTheme.deepDark:
+      return _buildTheme(Brightness.dark, Colors.indigoAccent, const Color(0xFF121212));
+    case AppTheme.midnight:
+      return _buildTheme(Brightness.dark, Colors.deepPurpleAccent, Colors.black);
+  }
+}
+
+ThemeData _buildTheme(Brightness brightness, Color primary, Color bg) {
   return ThemeData(
-    // Switch to Light Mode
-    brightness: Brightness.light,
-    primaryColor: Colors.blueAccent,
-    scaffoldBackgroundColor: Colors.white,
+    brightness: brightness,
+    primaryColor: primary,
+    scaffoldBackgroundColor: bg,
     
-    // Make the App Bar White with Black Text
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black, // Sets title and icon color to black
-      elevation: 0, // Removes the shadow for a flat, modern look
+    appBarTheme: AppBarTheme(
+      backgroundColor: bg,
+      foregroundColor: brightness == Brightness.light ? Colors.black : Colors.white,
+      elevation: 0,
       centerTitle: true,
-      iconTheme: IconThemeData(color: Colors.black),
+      iconTheme: IconThemeData(
+        color: brightness == Brightness.light ? Colors.black : Colors.white,
+      ),
     ),
     
     inputDecorationTheme: InputDecorationTheme(
@@ -27,15 +42,15 @@ ThemeData appTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+        borderSide: BorderSide(color: primary, width: 2),
       ),
       filled: true,
-      fillColor: const Color(0xFFF3F4F6),
+      fillColor: brightness == Brightness.light ? const Color(0xFFF3F4F6) : Colors.grey.shade800,
       labelStyle: TextStyle(color: Colors.grey.shade600),
     ),
     
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: brightness == Brightness.light ? Colors.white : Colors.grey.shade900,
       elevation: 3,
       shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(
