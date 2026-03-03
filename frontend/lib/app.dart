@@ -8,15 +8,23 @@ import 'pages/profile.dart';
 
 import 'widgets/app_shell.dart';
 
+// Global notifier for the app theme
+final ValueNotifier<AppTheme> themeNotifier = ValueNotifier(AppTheme.classicLight);
+
 class PropertyIQApp extends StatelessWidget {
   const PropertyIQApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: appTheme(),
-      home: const RootNavigator(),
+    return ValueListenableBuilder<AppTheme>(
+      valueListenable: themeNotifier,
+      builder: (context, currentTheme, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: getAppTheme(currentTheme), // Now dynamic!
+          home: const RootNavigator(),
+        );
+      },
     );
   }
 }
@@ -42,7 +50,8 @@ class _RootNavigatorState extends State<RootNavigator> {
     setState(() => selectedIndex = index);
   }
 
-
+  // Refresh current page: simplest approach is to rebuild the current page
+  // by changing a key. This forces the widget tree to remount.
   Key refreshKey = UniqueKey();
   void refreshCurrentPage() {
     setState(() {
