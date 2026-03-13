@@ -2,7 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 
-# Load .env reliably from backend/.env (even when running uvicorn from different folders)
+# .env reliably from backend/.env (even when running uvicorn from different folders)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
@@ -11,7 +11,6 @@ USERNAME = os.getenv("SIMPLYRETS_USERNAME", "simplyrets").strip()
 PASSWORD = os.getenv("SIMPLYRETS_PASSWORD", "simplyrets").strip()
 DEFAULT_LIMIT = int(os.getenv("SIMPLYRETS_DEFAULT_LIMIT", "20"))
 
-# Optional: only needed for some SimplyRETS accounts (multi-feed / multi-MLS)
 VENDOR = os.getenv("SIMPLYRETS_VENDOR", "").strip()
 
 print("SimplyRETS config:",

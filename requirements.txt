@@ -1,0 +1,15 @@
+# Existing dependencies
+fastapi
+uvicorn
+requests
+python-dotenv
+census
+us
+pandas
+
+# Agent dependencies (new)
+sqlalchemy
+psycopg2-binary
+apscheduler
+tavily-python
+httpx

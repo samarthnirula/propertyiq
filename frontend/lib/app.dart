@@ -1,15 +1,16 @@
+// app.dart
 import 'package:flutter/material.dart';
 import 'theme.dart';
-
 import 'pages/homepage.dart';
 import 'pages/calculator_page.dart';
 import 'pages/compare.dart';
+import 'pages/insights_page.dart'; // NEW
 import 'pages/profile.dart';
-
 import 'widgets/app_shell.dart';
 
-// Global notifier for the app theme
-final ValueNotifier<AppTheme> themeNotifier = ValueNotifier(AppTheme.classicLight);
+final ValueNotifier<AppTheme> themeNotifier = ValueNotifier(
+  AppTheme.classicLight,
+);
 
 class PropertyIQApp extends StatelessWidget {
   const PropertyIQApp({super.key});
@@ -21,7 +22,7 @@ class PropertyIQApp extends StatelessWidget {
       builder: (context, currentTheme, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: getAppTheme(currentTheme), // Now dynamic!
+          theme: getAppTheme(currentTheme),
           home: const RootNavigator(),
         );
       },
@@ -39,10 +40,12 @@ class RootNavigator extends StatefulWidget {
 class _RootNavigatorState extends State<RootNavigator> {
   int selectedIndex = 0;
 
+  // UPDATED: added InsightsPage at index 3, ProfilePage moved to index 4
   final pages = const [
     HomePage(),
     CalculatorPage(),
     ComparePage(),
+    InsightsPage(), // NEW
     ProfilePage(),
   ];
 
@@ -50,9 +53,8 @@ class _RootNavigatorState extends State<RootNavigator> {
     setState(() => selectedIndex = index);
   }
 
-  // Refresh current page: simplest approach is to rebuild the current page
-  // by changing a key. This forces the widget tree to remount.
   Key refreshKey = UniqueKey();
+
   void refreshCurrentPage() {
     setState(() {
       refreshKey = UniqueKey();
@@ -65,10 +67,7 @@ class _RootNavigatorState extends State<RootNavigator> {
       selectedIndex: selectedIndex,
       onTabSelected: onTabSelected,
       onLogoTapRefresh: refreshCurrentPage,
-      child: KeyedSubtree(
-        key: refreshKey,
-        child: pages[selectedIndex],
-      ),
+      child: KeyedSubtree(key: refreshKey, child: pages[selectedIndex]),
     );
   }
 }

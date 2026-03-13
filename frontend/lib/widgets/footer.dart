@@ -17,10 +17,7 @@ class FooterNav extends StatelessWidget {
       onTap: onTabSelected,
       type: BottomNavigationBarType.fixed,
       items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: "Home",
-        ),
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         BottomNavigationBarItem(
           icon: Icon(Icons.calculate),
           label: "Calculate",
@@ -30,9 +27,10 @@ class FooterNav extends StatelessWidget {
           label: "Compare",
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: "Profile",
+          icon: Icon(Icons.auto_awesome),
+          label: "Insights",
         ),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
       ],
     );
   }

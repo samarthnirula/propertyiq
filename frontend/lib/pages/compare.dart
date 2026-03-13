@@ -179,7 +179,7 @@ class _ComparePageState extends State<ComparePage> {
 
   Future<void> _selectLeftSuggestion(AddressSuggestion s) async {
     setState(() {
-      _leftController.text = (s.formatted ?? "");
+      _leftController.text = (s.formatted);
       _leftSuggestions = [];
     });
     await _runLeftStatsSearch(query: s.formatted);
@@ -330,7 +330,9 @@ class _ComparePageState extends State<ComparePage> {
                 itemBuilder: (context, index) {
                   final s = suggestions[index];
                   return ListTile(
-                    title: Text((s.formatted ?? "").isEmpty ? "(Unknown address)" : s.formatted),
+                    title: Text(
+                      (s.formatted).isEmpty ? "(Unknown address)" : s.formatted,
+                    ),
                     onTap: () => onSelectSuggestion(s),
                   );
                 },

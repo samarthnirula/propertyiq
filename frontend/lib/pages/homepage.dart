@@ -1,3 +1,6 @@
+// a dded "Analyze Area" button on each listing card
+// that navigates to AreaReportPage for that listings zipcode.
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
@@ -6,6 +9,7 @@ import '../models/listing.dart';
 import 'package:intl/intl.dart';
 import '../models/area_stats.dart';
 import '../services/saved_listings_store.dart';
+import 'area_report_page.dart'; // NEW
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -115,8 +119,10 @@ class _HomePageState extends State<HomePage> {
       status = q.isEmpty ? "Fetching listings..." : "Searching listings...";
     });
 
-    final listingsFuture =
-        ApiService.searchListings(query: q.isEmpty ? null : q, limit: 12);
+    final listingsFuture = ApiService.searchListings(
+      query: q.isEmpty ? null : q,
+      limit: 12,
+    );
 
     final statsFuture = q.isEmpty
         ? Future<AreaStats?>.value(null)
@@ -133,8 +139,8 @@ class _HomePageState extends State<HomePage> {
         areaStats = statsResults;
         status = listingResults.isEmpty
             ? (q.isEmpty
-                ? "No listings found."
-                : "No listings found for \"$q\".")
+                  ? "No listings found."
+                  : "No listings found for \"$q\".")
             : "Listings found: ${listingResults.length}";
       });
     } catch (e) {
@@ -219,6 +225,7 @@ class _HomePageState extends State<HomePage> {
     final img = proxiedImageUrl(l.photo);
     final score = _scoreForListing(l);
     final isSaved = SavedListingsStore.isSaved(l);
+    final zipcode = l.zip;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -257,8 +264,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 10),
                 const Divider(),
                 const SizedBox(height: 10),
@@ -282,6 +288,34 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 12),
                 _investmentBar(score),
+                const SizedBox(height: 12),
+
+                // ── NEW: Analyze Area Button ──────────────────
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text("Analyze Area"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blueAccent,
+                      side: const BorderSide(color: Colors.blueAccent),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      if (zipcode.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AreaReportPage(areaInput: zipcode),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                // ─────────────────────────────────────────────
               ],
             ),
           ),
@@ -300,9 +334,10 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Find a Property",
-                    style:
-                        TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                const Text(
+                  "Find a Property",
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -344,12 +379,11 @@ class _HomePageState extends State<HomePage> {
                 (context, i) => listingCard(listings[i]),
                 childCount: listings.length,
               ),
-              gridDelegate:
-                  const SliverGridDelegateWithMaxCrossAxisExtent(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 450,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 0.72,
+                childAspectRatio: 0.65, // slightly taller to fit new button
               ),
             ),
           ),

@@ -3,8 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../models/listing.dart';
 import '../services/saved_listings_store.dart';
-import '../theme.dart'; // Added for AppTheme
-import '../app.dart';   // Added for themeNotifier
+import '../theme.dart';
+import '../app.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -14,8 +14,11 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final NumberFormat _currency =
-      NumberFormat.currency(locale: 'en_US', symbol: '\$', decimalDigits: 0);
+  final NumberFormat _currency = NumberFormat.currency(
+    locale: 'en_US',
+    symbol: '\$',
+    decimalDigits: 0,
+  );
 
   // --- Theme Selection Methods ---
   void _showThemeDialog(BuildContext context) {
@@ -26,9 +29,19 @@ class _ProfilePageState extends State<ProfilePage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _themeTile(context, "Classic Light", AppTheme.classicLight, Colors.blue),
+            _themeTile(
+              context,
+              "Classic Light",
+              AppTheme.classicLight,
+              Colors.blue,
+            ),
             _themeTile(context, "Soft Blue", AppTheme.softBlue, Colors.cyan),
-            _themeTile(context, "Deep Dark", AppTheme.deepDark, Colors.grey.shade900),
+            _themeTile(
+              context,
+              "Deep Dark",
+              AppTheme.deepDark,
+              Colors.grey.shade900,
+            ),
             _themeTile(context, "Midnight", AppTheme.midnight, Colors.black),
           ],
         ),
@@ -36,7 +49,12 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _themeTile(BuildContext context, String title, AppTheme value, Color color) {
+  Widget _themeTile(
+    BuildContext context,
+    String title,
+    AppTheme value,
+    Color color,
+  ) {
     return ListTile(
       leading: CircleAvatar(backgroundColor: color, radius: 10),
       title: Text(title),
@@ -66,13 +84,19 @@ class _ProfilePageState extends State<ProfilePage> {
                 onTap: () => _showThemeDialog(context),
                 hoverColor: Colors.grey.withOpacity(0.2),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 8.0,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
                       Icon(Icons.palette_outlined, size: 20),
                       SizedBox(width: 6),
-                      Text("Theme", style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        "Theme",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
                 ),
@@ -81,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      
+
       // The body conditionally shows either the empty state or your saved listings
       body: saved.isEmpty
           ? const Center(
@@ -106,11 +130,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       itemCount: saved.length,
                       itemBuilder: (context, i) {
                         final Listing l = saved[i];
-                        final title = "${l.address}, ${l.city} ${l.state} ${l.zip}";
+                        final title =
+                            "${l.address}, ${l.city} ${l.state} ${l.zip}";
                         final beds = l.beds?.toStringAsFixed(0) ?? "-";
                         final baths = l.baths?.toStringAsFixed(1) ?? "-";
                         final sqft = l.sqft?.toString() ?? "-";
-                        final price = l.price == null ? "-" : _currency.format(l.price);
+                        final price = l.price == null
+                            ? "-"
+                            : _currency.format(l.price);
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 14),
@@ -122,7 +149,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 // Address
                                 Text(
                                   title,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const SizedBox(height: 10),
                                 const Divider(),
@@ -130,7 +159,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
                                 // Beds / Baths / Sqft
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text("Beds: $beds"),
                                     Text("Baths: $baths"),
@@ -143,15 +173,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
                                 // Price
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       "Price",
-                                      style: TextStyle(fontWeight: FontWeight.w600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                     Text(
                                       price,
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -188,7 +223,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       },
                       child: const Text("Clear all"),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
