@@ -1,6 +1,4 @@
-// a dded "Analyze Area" button on each listing card
-// that navigates to AreaReportPage for that listings zipcode.
-
+// pages/homepage.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
@@ -9,7 +7,7 @@ import '../models/listing.dart';
 import 'package:intl/intl.dart';
 import '../models/area_stats.dart';
 import '../services/saved_listings_store.dart';
-import 'area_report_page.dart'; // NEW
+import 'area_report_page.dart'; 
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -56,24 +54,17 @@ class _HomePageState extends State<HomePage> {
       final results = await ApiService.searchListings(limit: 12);
       setState(() {
         listings = results;
-        status = results.isEmpty
-            ? "No listings available."
-            : "Showing ${results.length} listings";
+        status = results.isEmpty ? "No listings available." : "Showing ${results.length} listings";
       });
     } catch (e) {
-      setState(() {
-        status = "Listings error: $e";
-      });
+      setState(() => status = "Listings error: $e");
     } finally {
-      setState(() {
-        loadingListings = false;
-      });
+      setState(() => loadingListings = false);
     }
   }
 
   void onSearchChanged(String value) {
     debounce?.cancel();
-
     if (value.trim().isEmpty) {
       setState(() {
         suggestions = [];
@@ -82,20 +73,16 @@ class _HomePageState extends State<HomePage> {
       });
       return;
     }
-
     if (value.trim().length < 3) {
       setState(() => suggestions = []);
       return;
     }
-
     debounce = Timer(const Duration(milliseconds: 350), () async {
       try {
         final results = await ApiService.autocomplete(value.trim());
         setState(() {
           suggestions = results;
-          status = results.isEmpty
-              ? "No suggestions found"
-              : "Select an address (or press Enter to search)";
+          status = results.isEmpty ? "No suggestions found" : "Select an address (or press Enter to search)";
         });
       } catch (e) {
         setState(() {
@@ -108,7 +95,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _runSearch({String? query}) async {
     final q = (query ?? searchController.text).trim();
-
     setState(() {
       suggestions = [];
       statsError = null;
@@ -119,18 +105,11 @@ class _HomePageState extends State<HomePage> {
       status = q.isEmpty ? "Fetching listings..." : "Searching listings...";
     });
 
-    final listingsFuture = ApiService.searchListings(
-      query: q.isEmpty ? null : q,
-      limit: 12,
-    );
-
-    final statsFuture = q.isEmpty
-        ? Future<AreaStats?>.value(null)
-        : ApiService.fetchAreaStats(q: q);
+    final listingsFuture = ApiService.searchListings(query: q.isEmpty ? null : q, limit: 12);
+    final statsFuture = q.isEmpty ? Future<AreaStats?>.value(null) : ApiService.fetchAreaStats(q: q);
 
     try {
       final results = await Future.wait([listingsFuture, statsFuture]);
-
       final listingResults = results[0] as List<Listing>;
       final statsResults = results[1] as AreaStats?;
 
@@ -138,9 +117,7 @@ class _HomePageState extends State<HomePage> {
         listings = listingResults;
         areaStats = statsResults;
         status = listingResults.isEmpty
-            ? (q.isEmpty
-                  ? "No listings found."
-                  : "No listings found for \"$q\".")
+            ? (q.isEmpty ? "No listings found." : "No listings found for \"$q\".")
             : "Listings found: ${listingResults.length}";
       });
     } catch (e) {
@@ -180,12 +157,10 @@ class _HomePageState extends State<HomePage> {
   Widget _investmentBar(double score) {
     final s = score.clamp(0, 100);
     final t = s / 100.0;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final knobX = (width * t).clamp(0.0, width);
-
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -193,9 +168,7 @@ class _HomePageState extends State<HomePage> {
               height: 10,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                gradient: const LinearGradient(
-                  colors: [Colors.red, Colors.yellow, Colors.green],
-                ),
+                gradient: const LinearGradient(colors: [Colors.red, Colors.yellow, Colors.green]),
               ),
             ),
             Positioned(
@@ -218,6 +191,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget listingCard(Listing l) {
+    final theme = Theme.of(context);
     final title = "${l.address}, ${l.city} ${l.state} ${l.zip}";
     final beds = l.beds?.toStringAsFixed(0) ?? "-";
     final baths = l.baths?.toStringAsFixed(1) ?? "-";
@@ -226,6 +200,12 @@ class _HomePageState extends State<HomePage> {
     final score = _scoreForListing(l);
     final isSaved = SavedListingsStore.isSaved(l);
     final zipcode = l.zip;
+
+    // We define the button background once so both buttons match perfectly
+    final buttonBackground = BoxDecoration(
+      color: theme.cardTheme.color?.withOpacity(0.85) ?? Colors.white.withOpacity(0.85),
+      shape: BoxShape.circle,
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -242,18 +222,44 @@ class _HomePageState extends State<HomePage> {
                   Image.network(img, fit: BoxFit.cover)
                 else
                   const Center(child: Text("No image")),
+                  
+                // Top Left: Analyze Area Button
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    decoration: buttonBackground,
+                    child: IconButton(
+                      icon: Icon(Icons.auto_awesome, size: 20, color: theme.primaryColor),
+                      tooltip: "Analyze Area",
+                      onPressed: () {
+                        if (zipcode.isNotEmpty) {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => AreaReportPage(areaInput: zipcode)));
+                        }
+                      },
+                    ),
+                  ),
+                ),
+
+                // Top Right: Save/Favorite Button
                 Positioned(
                   top: 10,
                   right: 10,
-                  child: IconButton(
-                    icon: Icon(
-                      isSaved ? Icons.favorite : Icons.favorite_border,
-                      color: isSaved ? Colors.red : Colors.white,
+                  child: Container(
+                    decoration: buttonBackground,
+                    child: IconButton(
+                      icon: Icon(
+                        isSaved ? Icons.favorite : Icons.favorite_border, 
+                        size: 20, 
+                        // Saved = Red, Unsaved = Grey so it shows up on the new background
+                        color: isSaved ? Colors.red : Colors.grey.shade600,
+                      ),
+                      tooltip: isSaved ? "Remove from Saved" : "Save Property",
+                      onPressed: () {
+                        SavedListingsStore.toggle(l);
+                        setState(() {});
+                      },
                     ),
-                    onPressed: () {
-                      SavedListingsStore.toggle(l);
-                      setState(() {});
-                    },
                   ),
                 ),
               ],
@@ -280,42 +286,13 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 10),
                 Center(
                   child: Text(
-                    l.price != null
-                        ? "Price: ${_currency.format(l.price)}"
-                        : "Price: -",
+                    l.price != null ? "Price: ${_currency.format(l.price)}" : "Price: -",
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(height: 12),
                 _investmentBar(score),
-                const SizedBox(height: 12),
-
-                // ── NEW: Analyze Area Button ──────────────────
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text("Analyze Area"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blueAccent,
-                      side: const BorderSide(color: Colors.blueAccent),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: () {
-                      if (zipcode.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AreaReportPage(areaInput: zipcode),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-                // ─────────────────────────────────────────────
+                const SizedBox(height: 8), 
               ],
             ),
           ),
@@ -326,6 +303,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Padding(
       padding: const EdgeInsets.all(18),
       child: CustomScrollView(
@@ -334,10 +313,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Find a Property",
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                ),
+                const Text("Find a Property", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -346,14 +322,15 @@ class _HomePageState extends State<HomePage> {
                         controller: searchController,
                         onChanged: onSearchChanged,
                         onSubmitted: (_) => _runSearch(),
-                        decoration: const InputDecoration(
-                          labelText: "Search address / keyword",
-                          prefixIcon: Icon(Icons.search),
-                        ),
+                        decoration: const InputDecoration(labelText: "Search address / keyword", prefixIcon: Icon(Icons.search)),
                       ),
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
                       onPressed: loadingListings ? null : _runSearch,
                       child: const Text("Search"),
                     ),
@@ -367,23 +344,19 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 12),
                 Text(status),
                 const SizedBox(height: 12),
-                if (loadingListings)
-                  const Center(child: CircularProgressIndicator()),
+                if (loadingListings) const Center(child: CircularProgressIndicator()),
               ],
             ),
           ),
           SliverPadding(
             padding: const EdgeInsets.only(top: 4),
             sliver: SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => listingCard(listings[i]),
-                childCount: listings.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, i) => listingCard(listings[i]), childCount: listings.length),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 450,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 0.65, // slightly taller to fit new button
+                childAspectRatio: 0.70, 
               ),
             ),
           ),
