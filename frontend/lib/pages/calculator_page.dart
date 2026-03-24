@@ -1,3 +1,4 @@
+// pages/calculator_page.dart
 import 'package:flutter/material.dart';
 import '../models/calc_models.dart';
 import '../services/api_service.dart';
@@ -12,7 +13,6 @@ class CalculatorPage extends StatefulWidget {
 }
 
 class _CalculatorPageState extends State<CalculatorPage> {
-  // --- STATE & CONTROLLERS ---
   final price = TextEditingController();
   final down = TextEditingController();
   final rate = TextEditingController();
@@ -29,18 +29,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
   CalcResponse? result;
   bool loading = false;
 
-  // --- LOGIC FUNCTIONS ---
-
   String? _validateInputs() {
-    if (price.text.isEmpty ||
-        down.text.isEmpty ||
-        rate.text.isEmpty ||
-        rent.text.isEmpty ||
-        monthlyExpenses.text.isEmpty ||
-        oneTimeExpenses.text.isEmpty) {
+    if (price.text.isEmpty || down.text.isEmpty || rate.text.isEmpty || rent.text.isEmpty || monthlyExpenses.text.isEmpty || oneTimeExpenses.text.isEmpty) {
       return "Please fill in all fields.";
     }
-
     final p = double.tryParse(price.text);
     final d = double.tryParse(down.text);
     final r = double.tryParse(rate.text);
@@ -48,9 +40,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final mExp = double.tryParse(monthlyExpenses.text);
     final oExp = double.tryParse(oneTimeExpenses.text);
 
-    if (p == null || d == null || r == null || ren == null || mExp == null || oExp == null) {
-      return "Please enter valid numbers only.";
-    }
+    if (p == null || d == null || r == null || ren == null || mExp == null || oExp == null) return "Please enter valid numbers only.";
     if (p <= 0) return "Price must be greater than 0.";
     if (d < 0 || r < 0 || ren < 0 || mExp < 0 || oExp < 0) return "Values cannot be negative.";
     if (d > p) return "Down payment cannot be greater than price.";
@@ -63,13 +53,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       setState(() => message = error);
       return;
     }
-
-    setState(() {
-      loading = true;
-      message = "Calculating...";
-      result = null;
-    });
-
+    setState(() { loading = true; message = "Calculating..."; result = null; });
     try {
       final req = CalcRequest(
         price: double.parse(price.text),
@@ -79,13 +63,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
         monthlyExpenses: double.parse(monthlyExpenses.text),
         oneTimeExpenses: double.parse(oneTimeExpenses.text),
       );
-
       final res = await ApiService.calculate(req);
-
-      setState(() {
-        result = res;
-        message = "Calculated successfully.";
-      });
+      setState(() { result = res; message = "Calculated successfully."; });
     } catch (e) {
       setState(() => message = "Error: $e");
     } finally {
@@ -95,102 +74,78 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void saveToCompare() {
     if (result == null) return;
-
     final label = "Property ${PropertyStore.saved.length + 1}";
     PropertyStore.saved.add(PropertyItem(label: label, calc: result!));
-
-    setState(() {
-      message = "Saved as $label. Check Compare tab.";
-    });
-    
+    setState(() => message = "Saved as $label. Check Compare tab.");
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Saved as $label"),
-          backgroundColor: Colors.black87,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Saved as $label")));
     }
   }
 
   void clearAll() {
-    price.clear();
-    down.clear();
-    rate.clear();
-    rent.clear();
-    monthlyExpenses.clear();
-    oneTimeExpenses.clear();
-
-    setState(() {
-      result = null;
-      message = "Enter details to analyze your investment";
-    });
+    price.clear(); down.clear(); rate.clear(); rent.clear(); monthlyExpenses.clear(); oneTimeExpenses.clear();
+    setState(() { result = null; message = "Enter details to analyze your investment"; });
   }
-
-  // --- UI BUILD METHOD ---
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader("Property Details", Icons.home_work_outlined),
+          _buildSectionHeader("Property Details", Icons.home_work_outlined, theme),
           const SizedBox(height: 10),
           _buildFormContainer([
-            _styledField("Purchase Price", price, Icons.attach_money),
+            _styledField("Purchase Price", price, Icons.attach_money, theme),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _styledField("Down Payment", down, Icons.money_off)),
+                Expanded(child: _styledField("Down Payment", down, Icons.money_off, theme)),
                 const SizedBox(width: 16),
-                Expanded(child: _styledField("Interest Rate", rate, Icons.percent)),
+                Expanded(child: _styledField("Interest Rate", rate, Icons.percent, theme)),
               ],
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _styledField("Zipcode", zipcode, Icons.location_on)),
+                Expanded(child: _styledField("Zipcode", zipcode, Icons.location_on, theme)),
                 const SizedBox(width: 16),
-                Expanded(child: _styledField("Year Built", year, Icons.build)),
+                Expanded(child: _styledField("Year Built", year, Icons.build, theme)),
               ],
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _styledField("Bedrooms", bedroom, Icons.bed)),
+                Expanded(child: _styledField("Bedrooms", bedroom, Icons.bed, theme)),
                 const SizedBox(width: 16),
-                Expanded(child: _styledField("Bathrooms", bathroom, Icons.bathtub)),
+                Expanded(child: _styledField("Bathrooms", bathroom, Icons.bathtub, theme)),
                 const SizedBox(width: 16),
-                Expanded(child: _styledField("Area (sq ft)", area, Icons.square_foot)),
+                Expanded(child: _styledField("Area (sq ft)", area, Icons.square_foot, theme)),
               ],
             ),
           ]),
           
           const SizedBox(height: 24),
-          // Reverted Icon: payments_outlined
-          _buildSectionHeader("Monthly & Upfront Costs", Icons.payments_outlined),
+          _buildSectionHeader("Monthly & Upfront Costs", Icons.payments_outlined, theme),
           const SizedBox(height: 10),
           _buildFormContainer([
-            // Reverted Icon: add_home_outlined
-            _styledField("Expected Monthly Rent", rent, Icons.add_home_outlined),
+            _styledField("Expected Monthly Rent", rent, Icons.add_home_outlined, theme),
             const SizedBox(height: 16),
-            _styledField("Monthly Expenses", monthlyExpenses, Icons.receipt_long),
+            _styledField("Monthly Expenses", monthlyExpenses, Icons.receipt_long, theme),
             const SizedBox(height: 16),
-            _styledField("Upfront Costs", oneTimeExpenses, Icons.build_circle_outlined),
+            _styledField("Upfront Costs", oneTimeExpenses, Icons.build_circle_outlined, theme),
           ]),
 
           const SizedBox(height: 30),
-
-          // Action Buttons
           SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black, 
+                backgroundColor: theme.primaryColor, // Dynamically matches theme
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -206,7 +161,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           Center(
             child: TextButton(
               onPressed: loading ? null : clearAll,
-              child: Text("Clear All Fields", style: TextStyle(color: Colors.grey[600])),
+              child: const Text("Clear All Fields"),
             ),
           ),
 
@@ -214,52 +169,41 @@ class _CalculatorPageState extends State<CalculatorPage> {
           Center(
             child: Text(
               message,
-              style: TextStyle(
-                color: message.contains("Error") ? Colors.red : Colors.grey[500],
-                fontSize: 13,
-              ),
+              style: TextStyle(color: message.contains("Error") ? Colors.red : Colors.grey, fontSize: 13),
             ),
           ),
           
-          if (result != null) _buildResultDashboard(result!),
+          if (result != null) _buildResultDashboard(result!, theme),
           const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  // --- WIDGET HELPERS ---
-
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(String title, IconData icon, ThemeData theme) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.blueAccent), // Kept blue accent for icons
+        Icon(icon, size: 20, color: theme.primaryColor), // Dynamically matches theme
         const SizedBox(width: 8),
-        Text(
-          title, 
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)
-        ),
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _buildFormContainer(List<Widget> children) {
-    return Column(children: children);
-  }
+  Widget _buildFormContainer(List<Widget> children) => Column(children: children);
 
-  Widget _styledField(String label, TextEditingController c, IconData icon) {
+  Widget _styledField(String label, TextEditingController c, IconData icon, ThemeData theme) {
     return TextField(
       controller: c,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 20, color: Colors.grey[500]),
+        prefixIcon: Icon(icon, size: 20, color: Colors.grey),
       ),
     );
   }
 
-  Widget _buildResultDashboard(CalcResponse res) {
+  Widget _buildResultDashboard(CalcResponse res, ThemeData theme) {
     final bool isPositive = res.cashFlow >= 0;
     final Color mainColor = isPositive ? const Color(0xFF10B981) : const Color(0xFFEF4444); 
     
@@ -269,30 +213,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
         Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.cardTheme.color, // Dynamically matches theme
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              )
-            ],
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
           ),
           child: Column(
             children: [
-              Text("Estimated Cash Flow", style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+              const Text("Estimated Cash Flow", style: TextStyle(color: Colors.grey, fontSize: 14)),
               const SizedBox(height: 8),
-              Text(
-                "\$${res.cashFlow.toStringAsFixed(2)}",
-                style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: mainColor),
-              ),
+              Text("\$${res.cashFlow.toStringAsFixed(2)}", style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: mainColor)),
               const SizedBox(height: 24),
-              
-              Divider(color: Colors.grey.shade100),
+              const Divider(),
               const SizedBox(height: 16),
-              
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -301,13 +233,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
                 children: [
-                  _summaryItem("ROI", "${res.roi.toStringAsFixed(2)}%", Colors.blueAccent),
-                  _summaryItem("Cap Rate", "${res.capRate.toStringAsFixed(2)}%", Colors.purpleAccent),
-                  _summaryItem("Mortgage", "\$${res.mortgagePayment.toStringAsFixed(0)}", Colors.orangeAccent),
-                  _summaryItem("Breakeven", res.breakevenYears == null ? "N/A" : "${res.breakevenYears!.toStringAsFixed(1)} yrs", Colors.teal),
+                  _summaryItem("ROI", "${res.roi.toStringAsFixed(2)}%", theme.primaryColor, theme),
+                  _summaryItem("Cap Rate", "${res.capRate.toStringAsFixed(2)}%", Colors.purpleAccent, theme),
+                  _summaryItem("Mortgage", "\$${res.mortgagePayment.toStringAsFixed(0)}", Colors.orangeAccent, theme),
+                  _summaryItem("Breakeven", res.breakevenYears == null ? "N/A" : "${res.breakevenYears!.toStringAsFixed(1)} yrs", Colors.teal, theme),
                 ],
               ),
-              
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -316,8 +247,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   icon: const Icon(Icons.bookmark_border),
                   label: const Text("Save to Compare"),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black87,
-                    side: BorderSide(color: Colors.grey.shade300),
+                    foregroundColor: theme.primaryColor,
+                    side: BorderSide(color: theme.primaryColor),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: saveToCompare,
@@ -330,13 +261,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _summaryItem(String label, String value, Color accent) {
+  Widget _summaryItem(String label, String value, Color accent, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: isDark ? Colors.black12 : const Color(0xFFF9FAFB), // Dynamically matches theme
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -346,11 +278,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
             children: [
               CircleAvatar(backgroundColor: accent.withOpacity(0.2), radius: 4),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
