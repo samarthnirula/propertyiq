@@ -11,6 +11,9 @@ from census import Census
 from us import states
 import pandas as pd
 import warnings
+from geocodio import Geocodio
+from urllib.request import urlopen
+from json import loads
 
 # --- (agents) ---
 from contextlib import asynccontextmanager
@@ -30,6 +33,8 @@ headers = {
 
 censusdate_api_key = os.getenv("CENSUSDATA_API_KEY")
 c = Census(censusdate_api_key)
+
+client = Geocodio("GEOCODIO_API_KEY")
 
 GEOAPIFY_KEY = os.getenv("GEOAPIFY_KEY")
 print("GEOAPIFY_KEY loaded: YES")
@@ -222,6 +227,59 @@ def get_property_price(address):
     response = requests.get(url, headers=headers)
     *_, last = response.json()[0]['taxAssessments'].items()
     return last[1]['value']
+
+def get_school_district_code(address):
+    response = client.geocode(address, fields=["school"])
+
+    school_district_code = response.results[0].fields.school_districts[0].lea_code
+
+    return school_district_code
+
+def format_grade_levels(lg, hg):
+    grade = ""
+    #only return high grade
+    if(lg is None and hg is not None):
+        grade = hg
+    elif(hg is None and lg is not None):
+        grade = lg
+    elif(hg is None and lg is None):
+        grade = "N/A"
+    else:
+        grade = f"{lg} - {hg}"
+    return grade
+
+
+def format_address(s):
+    parts = [
+        s.get("street_mailing"),
+        s.get("city_mailing"),
+        s.get("state_mailing"),
+        s.get("zip_mailing")
+    ]
+    return ", ".join(p for p in parts if p) if any(parts) else "N/A"
+
+
+def get_school_info(school_district_code):
+    url = "https://educationdata.urban.org/api/v1/schools/ccd/directory/2023/?fips=48"
+    response = urlopen(url)
+    data = loads(response.read())
+
+    schools = []
+    #attributes include school district name, school name, grade_levels, and address
+
+    for school in data["results"]:
+        if school.get("leaid") == school_district_code and school.get("school_status") == 1:
+            school_info = {
+                "school_district_name": school.get("lea_name") if school.get("lea_name") else "N/A",
+                "school_name": school.get("school_name") if school.get("school_name") else "N/A",
+                "grade_levels":  format_grade_levels(school.get("grade_low"), school.get("grade_high")) ,
+                "address": format_address(school)
+            }
+            schools.append(school_info)
+
+    print(schools)
+
+    return schools
 
 
 @app.post("/events")
