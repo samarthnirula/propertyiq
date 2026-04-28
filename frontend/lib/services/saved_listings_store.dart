@@ -1,24 +1,26 @@
 import '../models/listing.dart';
 
 class SavedListingsStore {
-  static final List<Listing> _saved = [];
+  static final List<Listing> saved = [];
 
-  static List<Listing> get saved => List.unmodifiable(_saved);
-
-  static bool isSaved(Listing l) => _saved.any((x) => x.id == l.id);
-
-  static void toggle(Listing l) {
-    final i = _saved.indexWhere((x) => x.id == l.id);
-    if (i >= 0) {
-      _saved.removeAt(i);
-    } else {
-      _saved.add(l);
+  static void add(Listing listing) {
+    final exists = saved.any((l) => l.id == listing.id);
+    if (!exists) {
+      saved.add(listing);
     }
   }
 
-  static void removeById(String id) {
-    _saved.removeWhere((x) => x.id == id);
+  static void removeById(String? id) {
+    if (id == null) return;
+    saved.removeWhere((l) => l.id == id);
   }
 
-  static void clear() => _saved.clear();
+  static void clear() {
+    saved.clear();
+  }
+
+  static bool isSaved(String? id) {
+    if (id == null) return false;
+    return saved.any((l) => l.id == id);
+  }
 }

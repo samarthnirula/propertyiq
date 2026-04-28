@@ -7,16 +7,31 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backen
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 BASE_URL = os.getenv("SIMPLYRETS_BASE_URL", "https://api.simplyrets.com").rstrip("/")
-USERNAME = os.getenv("SIMPLYRETS_USERNAME", "simplyrets").strip()
-PASSWORD = os.getenv("SIMPLYRETS_PASSWORD", "simplyrets").strip()
-DEFAULT_LIMIT = int(os.getenv("SIMPLYRETS_DEFAULT_LIMIT", "20"))
 
+# Support both old and new env names
+USERNAME = (
+    os.getenv("SIMPLYRETS_USERNAME", "").strip()
+    or os.getenv("SIMPLYRETS_API_KEY", "").strip()
+    or "simplyrets"
+)
+
+PASSWORD = (
+    os.getenv("SIMPLYRETS_PASSWORD", "").strip()
+    or os.getenv("SIMPLYRETS_API_SECRET", "").strip()
+    or "simplyrets"
+)
+
+DEFAULT_LIMIT = int(os.getenv("SIMPLYRETS_DEFAULT_LIMIT", "20"))
 VENDOR = os.getenv("SIMPLYRETS_VENDOR", "").strip()
 
-print("SimplyRETS config:",
-      {"base_url": BASE_URL,
-       "username_set": "YES" if USERNAME else "NO",
-       "vendor": VENDOR or "(none)"})
+print(
+    "SimplyRETS config:",
+    {
+        "base_url": BASE_URL,
+        "username_set": "YES" if USERNAME else "NO",
+        "vendor": VENDOR or "(none)",
+    },
+)
 
 
 def _pick_first_photo(item):
@@ -53,6 +68,7 @@ def _string(x):
 def normalize_listing(item):
     address = item.get("address") or {}
     geo = item.get("geo") or {}
+
     listing_id = (
         item.get("mlsId")
         or item.get("listingId")
@@ -144,15 +160,21 @@ def _request_properties(params):
     return []
 
 
-def search_listings(address_query=None, city=None, limit=None, offset=None):
+def search_listings(query=None, city=None, limit=None, offset=None, address_query=None):
     """
     General search (no state restriction).
     Uses optional SIMPLYRETS_VENDOR if provided.
+
+    Supports both:
+      - query=...
+      - address_query=...
     """
     if limit is None:
         limit = DEFAULT_LIMIT
     if offset is None:
         offset = 0
+
+    actual_query = address_query if address_query is not None else query
 
     base_params = {
         "limit": str(int(limit)),
@@ -166,10 +188,10 @@ def search_listings(address_query=None, city=None, limit=None, offset=None):
         base_params["cities"] = str(city)
 
     tried = []
-    if address_query:
+    if actual_query:
         for key in ("q", "address", "query"):
             p = dict(base_params)
-            p[key] = str(address_query)
+            p[key] = str(actual_query)
             tried.append(p)
     else:
         tried.append(dict(base_params))

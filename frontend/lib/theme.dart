@@ -52,7 +52,7 @@ ThemeData _buildTheme(Brightness brightness, Color primary, Color bg) {
     cardTheme: CardThemeData(
       color: brightness == Brightness.light ? Colors.white : Colors.grey.shade900,
       elevation: 3,
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),

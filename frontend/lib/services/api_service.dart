@@ -1,5 +1,3 @@
-// includes all original methods + new agent methods
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -9,9 +7,10 @@ import '../models/listing.dart';
 import '../models/area_stats.dart';
 
 class ApiService {
-  static const String baseUrl = "http://localhost:8000";
-
-  static Future<CalcResponse> calculate(CalcRequest request) async {
+static String get baseUrl {
+  return "http://localhost:8000";
+}
+static Future<CalcResponse> calculate(CalcRequest request) async {
     final url = Uri.parse("$baseUrl/calculate");
     final res = await http.post(
       url,
@@ -33,112 +32,177 @@ class ApiService {
     if (res.statusCode != 200) {
       throw Exception("Autocomplete failed: ${res.statusCode} ${res.body}");
     }
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final List results = (data["results"] ?? []) as List;
-    return results
-        .map((e) => AddressSuggestion.fromJson(e as Map<String, dynamic>))
-        .toList();
+
+    final decoded = jsonDecode(res.body);
+
+    if (decoded is List) {
+      return decoded
+          .map((e) => AddressSuggestion.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      final List results = (decoded["results"] ?? []) as List;
+      return results
+          .map((e) => AddressSuggestion.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    return [];
   }
 
   static Future<List<Listing>> searchListings({
     String? query,
     String? city,
     int limit = 12,
+    int offset = 0,
   }) async {
-    final params = <String, String>{"limit": limit.toString()};
-    if (query != null && query.trim().isNotEmpty) params["q"] = query.trim();
-    if (city != null && city.trim().isNotEmpty) params["city"] = city.trim();
+    final params = <String, String>{
+      "limit": limit.toString(),
+      "offset": offset.toString(),
+    };
+
+    if (query != null && query.trim().isNotEmpty) {
+      params["q"] = query.trim();
+    }
+    if (city != null && city.trim().isNotEmpty) {
+      params["city"] = city.trim();
+    }
+
     final url = Uri.parse("$baseUrl/listings").replace(queryParameters: params);
     final res = await http.get(url);
+
     if (res.statusCode != 200) {
       throw Exception("Listings failed: ${res.statusCode} ${res.body}");
     }
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final List results = (data["results"] ?? []) as List;
-    return results
-        .map((e) => Listing.fromJson(e as Map<String, dynamic>))
-        .toList();
+
+    final decoded = jsonDecode(res.body);
+
+    if (decoded is List) {
+      return decoded
+          .map((e) => Listing.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      final List results = (decoded["results"] ?? []) as List;
+      return results
+          .map((e) => Listing.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+
+    return [];
   }
 
-  static Future<AreaStats> fetchAreaStats({required String q}) async {
-    final query = q.trim();
-    if (query.isEmpty) throw Exception("fetchAreaStats: empty query");
-    final url = Uri.parse(
-      "$baseUrl/area-stats",
-    ).replace(queryParameters: {"q": query});
+  static Future<AreaStats> fetchAreaStats({
+    required String areaInput,
+    String? zipcode,
+  }) async {
+    final query = areaInput.trim();
+    if (query.isEmpty) {
+      throw Exception("fetchAreaStats: empty query");
+    }
+
+    final params = <String, String>{
+      "area_input": query,
+    };
+
+    if (zipcode != null && zipcode.trim().isNotEmpty) {
+      params["zipcode"] = zipcode.trim();
+    }
+
+    final url = Uri.parse("$baseUrl/area-stats").replace(
+      queryParameters: params,
+    );
+
     final res = await http.get(url);
+
     if (res.statusCode != 200) {
       throw Exception("Area stats failed: ${res.statusCode} ${res.body}");
     }
+
     return AreaStats.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
-  /// fetches a full AI-generated area intelligence report for a zipcode.
-  /// fakes ~60s first time, instant on repeat calls (cached on backend).
-  /// fetch a full AI-generated narrative research report for any area input.
+  // Older pages still call this.
+  static Future<AreaStats> getStats({required String zip}) async {
+    return fetchAreaStats(
+      areaInput: zip,
+      zipcode: zip,
+    );
+  }
+
   static Future<Map<String, dynamic>> fetchAreaReport(String areaInput) async {
-    final url = Uri.parse("$baseUrl/area-report");
+    final url = Uri.parse("$baseUrl/area-report").replace(
+      queryParameters: {"area_input": areaInput},
+    );
     final res = await http
-        .post(
-          url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"area_input": areaInput}),
-        )
+        .get(url)
         .timeout(const Duration(minutes: 3));
+
     if (res.statusCode != 200) {
       throw Exception("Area report failed: ${res.statusCode} ${res.body}");
     }
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  /// fetch a deep research report (12 queries, more data, deeper analysis).
   static Future<Map<String, dynamic>> fetchDeepAreaReport(
     String areaInput,
   ) async {
-    final url = Uri.parse("$baseUrl/area-report/deep");
+    final url = Uri.parse("$baseUrl/area-report/deep").replace(
+      queryParameters: {"area_input": areaInput},
+    );
     final res = await http
-        .post(
-          url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"area_input": areaInput}),
-        )
+        .get(url)
         .timeout(const Duration(minutes: 5));
+
     if (res.statusCode != 200) {
-      throw Exception("Deep report failed: ${res.statusCode}");
+      throw Exception("Deep report failed: ${res.statusCode} ${res.body}");
     }
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  /// fetch US housing market news for Insights tab default cards.
   static Future<List<Map<String, dynamic>>> fetchHousingNews() async {
     final url = Uri.parse("$baseUrl/housing-news");
     final res = await http.get(url).timeout(const Duration(seconds: 30));
     if (res.statusCode != 200) return [];
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    return List<Map<String, dynamic>>.from(data["news"] ?? []);
+
+    final decoded = jsonDecode(res.body);
+
+    if (decoded is Map<String, dynamic>) {
+      return List<Map<String, dynamic>>.from(decoded["news"] ?? []);
+    }
+
+    if (decoded is List) {
+      return List<Map<String, dynamic>>.from(decoded);
+    }
+
+    return [];
   }
 
-  /// Ask a follow-up question using curr data
   static Future<String> askAreaFollowup(
     String areaInput,
     String question,
   ) async {
-    final url = Uri.parse("$baseUrl/area-report/followup");
+    final url = Uri.parse("$baseUrl/area-report/followup").replace(
+      queryParameters: {
+        "area_input": areaInput,
+        "question": question,
+      },
+    );
+
     final res = await http
-        .post(
-          url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"area_input": areaInput, "question": question}),
-        )
+        .get(url)
         .timeout(const Duration(minutes: 2));
+
     if (res.statusCode != 200) {
       throw Exception("Followup failed: ${res.statusCode} ${res.body}");
     }
+
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return data["answer"] ?? "No answer returned.";
   }
 
-  /// log a user behavior event (save, dismiss, compare, view).
   static Future<void> logEvent(
     String userId,
     String eventType,
@@ -155,11 +219,10 @@ class ApiService {
         }),
       );
     } catch (_) {
-      //  never break the UI for a tracking event
+      // never break the UI for a tracking event
     }
   }
 
-  /// fetch personalized insight cards for a user.
   static Future<List<Map<String, dynamic>>> fetchInsights(String userId) async {
     final url = Uri.parse("$baseUrl/insights/$userId");
     final res = await http.get(url);

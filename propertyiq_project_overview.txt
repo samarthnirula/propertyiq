@@ -1,0 +1,303 @@
+PropertyIQ Project Overview
+===========================
+
+1) What the project is
+- PropertyIQ is a real estate intelligence web app.
+- A user can search a ZIP code or area and see a market snapshot, AI-estimated value, forecast, comparable ZIPs, and investment-style metrics.
+- The system combines housing data, economic data, and a custom machine-learning-style prediction engine.
+- The frontend is built in Flutter/Dart.
+- The backend is built in Python with FastAPI.
+- The main prediction engine is written in C++ for speed.
+
+2) Non-technical overview of how it works
+- First, the project collects housing and economic data from multiple sources.
+- Then it builds one combined ZIP-level market dataset.
+- That dataset is used by the prediction engine to compare similar ZIP codes.
+- The backend exposes that information through API endpoints.
+- The frontend calls those endpoints and displays the results in a simple web interface.
+- In plain language: data is collected -> cleaned -> combined -> scored by the model -> returned by the backend -> displayed by the frontend.
+
+3) High-level project flow
+- Collect raw data from external sources.
+- Build one cleaned ZIP-level dataset.
+- Use the C++ model to predict market value from similar ZIPs.
+- Use Python services to package the results.
+- Serve results through FastAPI endpoints.
+- Show the results in Flutter web pages.
+
+4) Main data sources
+- Zillow housing value data (ZHVI) for home price trends.
+- Zillow rent data (ZORI) for rent trends.
+- Census data for income and population metrics.
+- FRED for macroeconomic and labor signals.
+- Geocodio for geocoding-related support.
+- Geoapify for address autocomplete.
+- Rentcast for market/listing-related support.
+- SimplyRETS is optional and intended for live listing/property feed support.
+
+5) Backend structure: what each major part does
+- backend/main.py
+  - Starts the FastAPI server.
+  - Loads environment variables from .env.
+  - Checks API connection status at startup.
+  - Exposes endpoints like /area-stats, /calculate, /listings, /autocomplete, /area-report, and /housing-news.
+  - This is the main backend entry point.
+
+- backend/services/build_zip_market_dataset.py
+  - Builds the combined ZIP market dataset.
+  - Reads raw housing/economic inputs.
+  - Cleans and standardizes them.
+  - Produces the main ZIP-level dataset used by the model.
+  - If a new feature needs to be added to the training data, this is usually the file to update.
+
+- backend/services/main.cpp
+  - This is the core prediction engine.
+  - It compares the target ZIP to similar ZIPs.
+  - It uses weighted KNN-style logic, filters bad matches, applies clustering logic, and calculates a confidence score.
+  - If model logic needs to change, this is the main file to edit.
+
+- backend/services/predictor_service.py
+  - Acts as the bridge between Python and the C++ predictor.
+  - Sends ZIP-level inputs to the compiled C++ program.
+  - Reads the JSON response back from the predictor.
+  - If backend prediction output needs to change, this is one of the first files to check.
+
+- backend/services/evaluate_model.py
+  - Tests the model across many ZIPs.
+  - Compares predicted values to actual values.
+  - Helps choose the best K value and understand model accuracy.
+  - If you want to validate improvements to the algorithm, this is the file to run and update.
+
+- backend/services/stats_service.py
+  - Builds the area snapshot information returned by /area-stats.
+  - Pulls together dataset values, area labels, and summary fields.
+  - If the frontend snapshot is missing a field, this is one of the likely places to update.
+
+- backend/services/calculator_service.py
+  - Handles the investment calculator logic.
+  - Computes cash flow, ROI, cap rate, mortgage, and breakeven metrics.
+
+- backend/services/listing_search.py
+  - Handles listing-related search logic.
+  - This is the place to update if SimplyRETS or listing behavior changes.
+
+- backend/agents/area_researcher.py
+  - Handles area report / deep report / follow-up Q&A style outputs.
+  - Used for the neighborhood research features.
+
+6) Frontend structure: what each major page does
+- frontend/lib/services/api_service.dart
+  - Central place where the frontend calls the backend.
+  - If backend URLs or endpoints change, this is one of the first frontend files to update.
+
+- frontend/lib/pages/homepage.dart
+  - Main landing/search page.
+  - Lets users search by ZIP or address.
+  - Shows listings and area snapshot results.
+  - If homepage search behavior changes, update this file.
+
+- frontend/lib/widgets/area_stats_panel.dart
+  - Displays the main area snapshot box.
+  - Shows AI prediction, confidence, comparable ZIPs, forecast, and supporting market stats.
+  - If you want to change how results look on screen, this is one of the most important UI files.
+
+- frontend/lib/pages/compare.dart
+  - Lets users compare two properties or areas side by side.
+
+- frontend/lib/pages/calculator_page.dart
+  - Displays the investment calculator.
+
+- frontend/lib/pages/profile.dart
+  - Displays saved listings and saved user selections.
+
+- frontend/lib/pages/area_report_page.dart
+  - Shows deeper area research and follow-up questions.
+
+- frontend/lib/models/area_stats.dart
+  - Defines the structure of area snapshot data on the frontend.
+  - If a new backend field needs to appear in the frontend snapshot, this file often must be updated too.
+
+- frontend/lib/models/calc_models.dart
+  - Defines calculator request and response models.
+
+- frontend/lib/services/saved_listings_store.dart
+  - Handles saved listing state in the frontend.
+
+7) How the pipeline works in human language
+- Raw files and API data are collected.
+- The dataset builder turns that raw data into one clean ZIP-by-ZIP table.
+- That table includes prices, rent, income, trends, and other signals.
+- The prediction engine reads the target ZIP and compares it against similar ZIPs from the dataset.
+- It filters out bad comparisons.
+- It gives stronger weight to more similar areas.
+- It produces a predicted property value, comparable ZIPs, and a confidence score.
+- Python takes that output, mixes it with area statistics and forecasts, and sends it to the frontend.
+- Dart/Flutter displays the results in a browser-based interface.
+
+8) Machine learning / model overview in plain English
+- The project uses a weighted KNN-style model instead of a large black-box neural network.
+- KNN means it looks for similar ZIPs and estimates value based on those similar places.
+- The current model compares ZIPs using things like:
+  - property value level
+  - rent level
+  - income level
+  - population change
+  - owner share
+  - crime data if available
+  - recent price trends
+  - market tier
+  - region bucket
+  - urban vs non-urban behavior
+- The model also uses clustering ideas so it tries to compare the target ZIP with ZIPs in a similar economic group.
+- The model returns:
+  - predicted market value
+  - number of comparable ZIPs used
+  - comparable ZIP details
+  - confidence score
+
+9) What “confidence” means
+- Confidence is not the same thing as accuracy.
+- Confidence is the model's own sense of how consistent and well-matched the comparable ZIPs are.
+- A high confidence score means the neighbor ZIPs are tightly grouped and similar.
+- A high historical error means the model has struggled more in places like that during evaluation.
+- Both should be shown together.
+
+10) How forecasting works
+- The project blends current AI-estimated market value with short-term forecast data.
+- It creates quarter-by-quarter projections such as Q1, Q2, Q3, and Q4.
+- This gives users a directional one-year outlook instead of only a present-day estimate.
+
+11) How evaluation works
+- The evaluation script tests many ZIPs by predicting them one at a time.
+- It compares each prediction to the real value in the dataset.
+- It calculates mean error, median error, best cases, and worst cases.
+- It also helps select the best K value for the KNN model.
+- This is how model accuracy is measured before demoing or tuning.
+
+12) Current strengths of the project
+- End-to-end working system.
+- Real backend and real frontend connected.
+- Real data sources used.
+- Custom prediction engine written in C++.
+- Forecasting support.
+- Comparable ZIP explanation.
+- Confidence scoring.
+- Multiple pages: search, compare, calculator, profile, reports.
+
+13) Current limitations / honest notes
+- SimplyRETS may still be optional or only partially configured depending on available credentials.
+- Some ZIPs may still have weaker county or geographic enrichment than ideal.
+- Some outlier ZIPs can still produce larger-than-desired error.
+- Confidence and error should always be interpreted together, not separately.
+
+14) If someone wants to add a new data feature
+- Start in backend/services/build_zip_market_dataset.py
+- Add the new field to the dataset build process.
+- Then update backend/services/main.cpp if the model should use that field.
+- Then update backend/services/predictor_service.py if the response should expose it.
+- Then update frontend/lib/models/area_stats.dart if the frontend needs that field.
+- Then update frontend/lib/widgets/area_stats_panel.dart or the relevant page to display it.
+
+15) If someone wants to change prediction behavior
+- Main place: backend/services/main.cpp
+- Use backend/services/evaluate_model.py to validate whether the change improved accuracy.
+- Recompile the predictor after changing the C++ file.
+
+16) If someone wants to change how the UI looks
+- Main place for homepage: frontend/lib/pages/homepage.dart
+- Main place for area snapshot: frontend/lib/widgets/area_stats_panel.dart
+- Main place for compare page: frontend/lib/pages/compare.dart
+- Main place for calculator page: frontend/lib/pages/calculator_page.dart
+- Main place for profile page: frontend/lib/pages/profile.dart
+
+17) If someone wants to change how backend endpoints behave
+- Main place: backend/main.py
+- Supporting logic usually lives in backend/services/*.py
+
+18) If something breaks in search or listings
+- Frontend side: frontend/lib/services/api_service.dart
+- Backend route layer: backend/main.py
+- Listing logic: backend/services/listing_search.py
+- Optional provider setup: .env and SimplyRETS / other API credentials
+
+19) If something breaks in the area snapshot
+- Backend aggregation: backend/services/stats_service.py
+- Prediction bridge: backend/services/predictor_service.py
+- Model logic: backend/services/main.cpp
+- Frontend model: frontend/lib/models/area_stats.dart
+- Frontend UI: frontend/lib/widgets/area_stats_panel.dart
+
+20) If something breaks in the calculator
+- Backend calculation logic: backend/services/calculator_service.py
+- Frontend request/response models: frontend/lib/models/calc_models.dart
+- Frontend page: frontend/lib/pages/calculator_page.dart
+
+21) If something breaks in the saved properties/profile feature
+- Frontend store: frontend/lib/services/saved_listings_store.dart
+- Profile page: frontend/lib/pages/profile.dart
+
+22) If something breaks in the neighborhood reports
+- Backend agent logic: backend/agents/area_researcher.py
+- Backend route layer: backend/main.py
+- Frontend display: frontend/lib/pages/area_report_page.dart
+
+23) Typical developer workflow
+- Update backend logic.
+- Restart FastAPI server.
+- Test endpoint in browser.
+- Update frontend models if response shape changed.
+- Update frontend page/widget.
+- Run Flutter web and verify UI.
+- If model changed, run evaluation script and compare error metrics.
+
+24) Project summary in very simple language
+- PropertyIQ gathers housing and economic data.
+- It turns that into one ZIP-based market dataset.
+- A custom model compares the target ZIP to similar ZIPs.
+- The backend packages the results and exposes them through APIs.
+- The frontend displays those results in a clean web app.
+- The app helps users understand market value, nearby comparable areas, risk/confidence, and possible future trends.
+
+25) What still can be improved later
+- Better county and geographic enrichment.
+- More accurate live listings integration.
+- Investment score.
+- Best ZIP ranking page.
+- More polished design.
+- Stronger presentation/demo flow.
+
+
+
+BEST ZIPCODES (K=3, after lat/lon fix):
+75760 — Error: 0.01%
+78332 — Error: 0.01%
+78363 — Error: 0.05%
+76258 — Error: 0.06%
+76471 — Error: 0.06%
+
+WORST ZIPCODES (K=3, after lat/lon fix):
+78954 — Error: 100.00%  (luxury outlier — predicted=1, model issue)
+78205 — Error: 82.45%
+77019 — Error: 82.35%
+79848 — Error: 81.20%
+78746 — Error: 80.73%
+
+NOTE: All lat/lon were 0.0 before fix. After patching from ZCTA gazetteer + pgeocode county lookup,
+mean model error = 13.40%, best K = 3. High-error ZIPs are mostly luxury/ultra-luxury urban core.
+
+
+BACKEND startup
+
+propertyiq/backend
+python3 -m uvicorn main:app --reload
+
+COMPILE PREDICTOR (After any change to cpp file)
+propertyiq/backend
+g++ -std=c++17 -O2 -o services/predictor services/main.cpp
+
+RUNNING EVALUATION Model
+python3 services/evaluate_model.py
+
+BACK Test
+http://127.0.0.1:8000/health
+http://127.0.0.1:8000/area-stats?area_input=75022&zipcode=75022

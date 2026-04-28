@@ -1,265 +1,256 @@
-"""
-Area Researcher Agent — Hyper-local neighborhood intelligence
--------------------------------------------------------------
+from typing import Dict, List
 
-Two modes:
-1. research_area()     — fast overview (60-90s)
-2. deep_research()     — in-depth neighborhood analysis with more sources
-
-The agent focuses on the specific neighborhood/street level, not the city.
-It decides what to research based on what could affect housing in that area.
-
-I also made use of qwen to run the model etc..
-"""
-
-import json
-import os
-from datetime import datetime
-from tavily import TavilyClient
-import httpx
-
-tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
-
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "qwen2.5"
+from services.stats_service import (
+    get_area_stats_simple,
+    infer_zipcode_from_area_input,
+)
 
 
-def ask_qwen(prompt: str, timeout: int = 180) -> str:
-    response = httpx.post(
-        OLLAMA_URL,
-        json={"model": MODEL, "prompt": prompt, "stream": False},
-        timeout=float(timeout)
-    )
-    response.raise_for_status()
-    return response.json()["response"].strip()
+def _safe_text(value, fallback="Not available"):
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text if text else fallback
 
 
-def search(query: str, max_results: int = 5) -> list[dict]:
+def _money(value):
+    if value is None:
+        return "Not available"
     try:
-        result = tavily.search(
-            query=query,
-            search_depth="advanced",
-            max_results=max_results,
-        )
-        return [
-            {
-                "title": r.get("title", ""),
-                "content": r.get("content", ""),
-                "url": r.get("url", ""),
-            }
-            for r in result.get("results", [])
-        ]
-    except Exception as e:
-        print(f"[AreaResearcher] Search error: {e}")
-        return []
-
-
-def _collect_data(area_input: str, num_queries: int = 6) -> tuple[list, list]:
-    """Step 1: Agent plans queries. Step 2: Execute searches. Returns (findings, sources)."""
-
-    planning_prompt = f"""
-You are a hyper-local real estate intelligence agent. A real estate investor wants to understand
-the investment potential of this SPECIFIC neighborhood/area: "{area_input}"
-
-Generate {num_queries} targeted search queries to gather data that could affect housing values
-in THIS SPECIFIC area — not the broader city. Think street-level, neighborhood-level.
-
-Focus on factors like:
-- Actual crime statistics for this specific zipcode/neighborhood (not the city)
-- Specific employers, businesses opening or closing nearby
-- Local school district performance and ratings
-- Flood zone maps, environmental hazards, Superfund sites nearby
-- Local zoning changes, new construction permits filed
-- Neighborhood demographic shifts, gentrification indicators
-- Specific infrastructure projects (highway, transit, utility)
-- Local property tax trends for this area
-- HOA issues if applicable, code violations
-- Any hyper-local news specific to this neighborhood
-
-Use site-specific searches targeting: census.gov, fbi.gov, bls.gov, epa.gov, fema.gov,
-zillow.com, redfin.com, realtor.com, greatschools.org, neighborhoodscout.com, city planning sites.
-
-Return ONLY a JSON array of search query strings, nothing else:
-["query 1", "query 2", ...]
-"""
-
-    raw = ask_qwen(planning_prompt, timeout=60)
-    if "```" in raw:
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-
-    try:
-        queries = json.loads(raw)
+        return f"${float(value):,.0f}"
     except Exception:
-        queries = [
-            f"crime rate statistics {area_input} neighborhood site:neighborhoodscout.com OR site:crimemapping.com",
-            f"property values housing market {area_input} 2024 2025 site:zillow.com OR site:redfin.com",
-            f"flood zone FEMA map {area_input} site:fema.gov OR site:floodsmart.gov",
-            f"school ratings {area_input} site:greatschools.org OR site:niche.com",
-            f"new development construction permits {area_input} 2024 2025",
-            f"employment jobs economy {area_input} site:bls.gov OR site:census.gov",
-        ]
-
-    print(f"[AreaResearcher] Planned {len(queries)} hyper-local queries")
-
-    all_sources = []
-    all_findings = []
-
-    for query in queries:
-        results = search(query, max_results=5)
-        for r in results:
-            if r["url"] and r["content"]:
-                all_findings.append({
-                    "source": r["title"],
-                    "url": r["url"],
-                    "content": r["content"][:800],
-                })
-                if r["url"] not in [s["url"] for s in all_sources]:
-                    all_sources.append({"name": r["title"][:80], "url": r["url"]})
-        print(f"[AreaResearcher] ✓ {len(results)} results: {query[:55]}...")
-
-    return all_findings, all_sources
+        return "Not available"
 
 
-def _synthesize(area_input: str, all_findings: list, all_sources: list, deep: bool = False) -> dict:
-    """Ask Qwen to reason across all data and write a narrative report."""
-
-    findings_text = "\n\n".join([
-        f"SOURCE: {f['source']}\nURL: {f['url']}\nDATA: {f['content']}"
-        for f in all_findings
-    ])
-
-    depth_instruction = """
-This is a DEEP RESEARCH report. Go beyond surface-level summaries.
-- Cite specific numbers, percentages, dollar amounts from the data
-- Connect multiple data points to surface non-obvious conclusions
-- Identify contradictions between sources and explain what they mean
-- Point out what the data does NOT say but an investor should be suspicious of
-- Be skeptical — don't just repeat what sources say, analyze it
-""" if deep else """
-Focus on the most important findings. Be specific to this neighborhood, not the broader city.
-Cite actual numbers and data points from the sources, not vague generalities.
-"""
-
-    synthesis_prompt = f"""
-You are an expert real estate investment analyst writing a research report about:
-"{area_input}"
-
-{depth_instruction}
-
-You have data from {len(all_findings)} sources. Your job is to CONNECT THE DOTS and surface
-insights a normal model wouldn't catch. Be SPECIFIC to this neighborhood — not the city.
-If a source talks about the broader city and you can't confirm it applies to this specific area, say so.
-
-Do NOT sound like ChatGPT. Be direct, specific, and analytical like a Goldman Sachs analyst would be.
-Use actual data points. Say things like "property values in this zipcode rose 4.2% YoY" not
-"property values have been increasing."
-
-RAW DATA:
-{findings_text}
-
-Return a JSON object (no markdown, no backticks):
-{{
-  "title": "<specific research report title for this neighborhood>",
-  "executive_summary": "<3-4 sentences. Bottom line investment thesis. Be specific with numbers.>",
-  "sections": [
-    {{
-      "heading": "<specific topic>",
-      "narrative": "<3-5 sentences of specific, data-backed analysis. Reference sources inline as [Name](url). Be specific to this neighborhood not the city.>"
-    }}
-  ],
-  "key_insights": [
-    "<non-obvious insight 1 connecting multiple data points with specifics>",
-    "<non-obvious insight 2>",
-    "<non-obvious insight 3>"
-  ],
-  "risks": "<specific risks with data to back them up>",
-  "opportunities": "<specific opportunities with data to back them up>",
-  "bottom_line": "<1-2 sentence verdict. Be direct. Would you invest here or not and why.>",
-  "sources": [{{"name": "<name>", "url": "<url>"}}]
-}}
-"""
-
-    print(f"[AreaResearcher] {'Deep' if deep else 'Standard'} synthesis across {len(all_findings)} data points...")
-    raw = ask_qwen(synthesis_prompt, timeout=300 if deep else 240)
-
-    if "```" in raw:
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-
-    report = json.loads(raw)
-    report["area_input"] = area_input
-    report["generated_at"] = datetime.utcnow().isoformat()
-    report["sources"] = all_sources[:20]
-    report["is_deep"] = deep
-
-    sections = len(report.get("sections", []))
-    print(f"[AreaResearcher] ✓ {'Deep' if deep else 'Standard'} report done — {sections} sections, {len(all_sources)} sources")
-    return report
+def _pct(value):
+    if value is None:
+        return "Not available"
+    try:
+        return f"{float(value):.1f}%"
+    except Exception:
+        return "Not available"
 
 
-def research_area(area_input: str) -> dict:
-    """Standard research — 6 queries, ~60-90s."""
-    findings, sources = _collect_data(area_input, num_queries=6)
-    return _synthesize(area_input, findings, sources, deep=False)
-
-
-def deep_research(area_input: str) -> dict:
-    """
-    Deep research — 12 queries, much more data, deeper analysis.
-    Triggered by user clicking 'Deep Dive' button.
-    """
-    findings, sources = _collect_data(area_input, num_queries=12)
-    return _synthesize(area_input, findings, sources, deep=True)
-
-
-def get_us_housing_news() -> list[dict]:
-    """
-    Fetch recent US housing market news for the Insights tab default cards.
-    Returns a list of news items with title, summary, and source.
-    """
-    queries = [
-        "US housing market news 2025 2026 mortgage rates",
-        "real estate investment trends United States 2025",
-        "Federal Reserve interest rates housing impact 2025",
+def _build_sources(area_input: str, zip_code: str) -> List[Dict]:
+    return [
+        {
+            "name": "Area Stats API",
+            "url": f"/area-stats?area_input={area_input}&zipcode={zip_code}",
+        },
+        {
+            "name": "U.S. Census ACS",
+            "url": "https://api.census.gov/data.html",
+        },
+        {
+            "name": "FRED",
+            "url": "https://fred.stlouisfed.org/",
+        },
+        {
+            "name": "Local ZIP market dataset",
+            "url": "internal://zip_market_dataset.csv",
+        },
     ]
 
-    news_items = []
-    for query in queries:
-        results = search(query, max_results=3)
-        for r in results:
-            if r["title"] and r["content"]:
-                news_items.append({
-                    "title": r["title"],
-                    "summary": r["content"][:300],
-                    "url": r["url"],
-                    "source": r["title"][:50],
-                })
 
-    return news_items[:6]
+def _build_key_insights(stats: Dict) -> List[str]:
+    insights = []
+
+    avg_price = stats.get("average_property_price")
+    rent = stats.get("median_rent_estimate")
+    income = stats.get("median_household_income")
+    pop = stats.get("population_change_pct")
+    owner = stats.get("owner_share_pct")
+    prediction = stats.get("algorithm_prediction")
+    forecast_q4 = stats.get("forecast_q4_price")
+
+    if prediction is not None:
+        insights.append(
+            f"The AI market valuation for this ZIP is approximately **{_money(prediction)}**, which serves as a current comparable-based estimate."
+        )
+
+    if avg_price is not None and rent is not None:
+        insights.append(
+            f"Current area pricing is around **{_money(avg_price)}** with median rent near **{_money(rent)}**, which helps frame the local price-to-rent relationship."
+        )
+
+    if income is not None:
+        insights.append(
+            f"Median household income is estimated at **{_money(income)}**, which provides a useful demand-side affordability signal."
+        )
+
+    if pop is not None:
+        insights.append(
+            f"Population trend is **{_pct(pop)}**, suggesting the area is {'growing' if float(pop) > 0 else 'stable/slightly contracting'} over the latest comparison window."
+        )
+
+    if owner is not None:
+        insights.append(
+            f"Owner occupancy is about **{_pct(owner)}**, which indicates a {'more ownership-oriented' if float(owner) >= 60 else 'more renter-balanced'} housing mix."
+        )
+
+    if forecast_q4 is not None:
+        insights.append(
+            f"The 1-year trend model points to a Q4 projected value near **{_money(forecast_q4)}**, which is useful as a directional screening estimate."
+        )
+
+    return insights[:6]
 
 
-def answer_followup(area_input: str, question: str, existing_report: dict) -> str:
-    prompt = f"""
-You are a real estate analyst. You researched "{area_input}" and produced this report:
-{json.dumps(existing_report, indent=2)}
+def _build_sections(stats: Dict) -> List[Dict]:
+    sections = []
 
-User question: "{question}"
+    sections.append({
+        "heading": "Market Overview",
+        "narrative": (
+            f"This area is currently characterized by an average property value near {_money(stats.get('average_property_price'))} "
+            f"and median rent near {_money(stats.get('median_rent_estimate'))}. "
+            f"The AI comparable-market estimate is {_money(stats.get('algorithm_prediction'))}, which is designed to reflect the current market value based on similar ZIP codes."
+        ),
+    })
 
-Answer directly and specifically using the report data. Cite sources as [Name](url).
-If the question goes beyond what was researched, say so honestly — don't make things up.
+    sections.append({
+        "heading": "Demographics & Demand",
+        "narrative": (
+            f"Median household income is {_money(stats.get('median_household_income'))}, while population change is {_pct(stats.get('population_change_pct'))}. "
+            f"Owner share is {_pct(stats.get('owner_share_pct'))} and renter share is {_pct(stats.get('renter_share_pct'))}. "
+            f"Together, these signals help indicate the likely stability and demand profile of the local housing base."
+        ),
+    })
 
-Return ONLY a JSON object:
-{{"answer": "<your specific answer in 2-4 sentences>"}}
-"""
-    raw = ask_qwen(prompt)
-    if "```" in raw:
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-    return json.loads(raw).get("answer", "")
+    sections.append({
+        "heading": "Rental & Yield Context",
+        "narrative": _safe_text(
+            stats.get("price_rent_context"),
+            "Rental market context is limited for this area."
+        ),
+    })
+
+    sections.append({
+        "heading": "Macro Conditions",
+        "narrative": (
+            f"County unemployment trend is {_pct(stats.get('county_unemployment_trend_pct'))}. "
+            f"{_safe_text(stats.get('metro_labor_trend'), '')} "
+            f"{_safe_text(stats.get('macro_signal'), '')}"
+        ).strip(),
+    })
+
+    sections.append({
+        "heading": "Forecast Outlook",
+        "narrative": (
+            f"Forecast pricing moves from {_money(stats.get('forecast_current_price'))} currently "
+            f"to {_money(stats.get('forecast_q1_price'))}, {_money(stats.get('forecast_q2_price'))}, "
+            f"{_money(stats.get('forecast_q3_price'))}, and {_money(stats.get('forecast_q4_price'))} over the next four quarters. "
+            f"{_safe_text(stats.get('forecast_summary'), '')}"
+        ).strip(),
+    })
+
+    if stats.get("notes"):
+        sections.append({
+            "heading": "Data Notes",
+            "narrative": _safe_text(stats.get("notes")),
+        })
+
+    return sections
+
+
+def research_area(area_input: str) -> Dict:
+    zip_code = infer_zipcode_from_area_input(area_input) or area_input.strip()
+
+    stats = get_area_stats_simple(zip_code, area_input=area_input)
+
+    title = f"Area Intelligence Report for {area_input}"
+
+    executive_summary = (
+        f"{area_input} shows current pricing around {_money(stats.get('average_property_price'))} "
+        f"with an AI-estimated market value of {_money(stats.get('algorithm_prediction')) if stats.get('algorithm_prediction') is not None else 'not available'}. "
+        f"Median household income is {_money(stats.get('median_household_income'))}, and population change is {_pct(stats.get('population_change_pct'))}. "
+        f"This area appears {'owner-oriented' if (stats.get('owner_share_pct') or 0) >= 60 else 'more renter-balanced'}, "
+        f"with a directional 1-year outlook toward {_money(stats.get('forecast_q4_price'))}."
+    )
+
+    return {
+        "title": title,
+        "executive_summary": executive_summary,
+        "key_insights": _build_key_insights(stats),
+        "sections": _build_sections(stats),
+        "sources": _build_sources(area_input, zip_code),
+        "raw_stats": stats,
+    }
+
+
+def deep_research(area_input: str) -> Dict:
+    base = research_area(area_input)
+    stats = base.get("raw_stats", {})
+
+    deep_sections = list(base["sections"])
+
+    deep_sections.insert(1, {
+        "heading": "Comparable Market Interpretation",
+        "narrative": (
+            f"The AI pricing model estimated {_money(stats.get('algorithm_prediction'))} for this ZIP using nearby and structurally similar ZIP code comparables. "
+            f"The model also tracks its historical error level at {_pct(stats.get('algorithm_error_pct')) if stats.get('algorithm_error_pct') is not None else 'not available'}, "
+            f"which helps frame confidence in the current estimate."
+        ),
+    })
+
+    deep_sections.append({
+        "heading": "Strategic Read",
+        "narrative": (
+            f"For screening purposes, this ZIP appears most useful as a {'stability-oriented' if (stats.get('owner_share_pct') or 0) >= 60 else 'turnover/liquidity-oriented'} market. "
+            f"Analysts should compare the AI valuation, current price level, and Q4 projection together rather than relying on any one figure in isolation."
+        ),
+    })
+
+    return {
+        "title": f"Deep Area Research for {area_input}",
+        "executive_summary": base["executive_summary"],
+        "key_insights": base["key_insights"],
+        "sections": deep_sections,
+        "sources": base["sources"],
+        "raw_stats": stats,
+        "deep": True,
+    }
+
+
+def answer_followup(area_input: str, question: str) -> Dict:
+    q = (question or "").strip().lower()
+    report = research_area(area_input)
+    stats = report.get("raw_stats", {})
+
+    if not q:
+        return {"answer": "Please ask a question about the area."}
+
+    if "rent" in q:
+        answer = (
+            f"Median rent is currently around {_money(stats.get('median_rent_estimate'))}. "
+            f"{_safe_text(stats.get('price_rent_context'))}"
+        )
+    elif "income" in q or "salary" in q:
+        answer = (
+            f"Median household income is estimated at {_money(stats.get('median_household_income'))}. "
+            f"This is one of the signals used to understand local affordability and demand strength."
+        )
+    elif "forecast" in q or "1 year" in q or "q4" in q:
+        answer = (
+            f"The current forecast path ends near {_money(stats.get('forecast_q4_price'))} by Q4. "
+            f"This is a directional trend estimate and should be read together with the AI market value estimate."
+        )
+    elif "ai" in q or "prediction" in q or "model" in q:
+        answer = (
+            f"The AI comparable-market estimate is {_money(stats.get('algorithm_prediction')) if stats.get('algorithm_prediction') is not None else 'not available'}. "
+            f"It is based on similar ZIPs and historical feature patterns rather than a formal appraisal."
+        )
+    elif "crime" in q or "safety" in q:
+        answer = (
+            f"County crime rate context is {_safe_text(stats.get('county_crime_rate'))}. "
+            f"This is county-level context, not a block-by-block safety score."
+        )
+    else:
+        answer = (
+            f"For {area_input}, the main takeaways are: AI value around "
+            f"{_money(stats.get('algorithm_prediction')) if stats.get('algorithm_prediction') is not None else 'not available'}, "
+            f"current price around {_money(stats.get('average_property_price'))}, "
+            f"and Q4 directional projection near {_money(stats.get('forecast_q4_price'))}."
+        )
+
+    return {"answer": answer}

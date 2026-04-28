@@ -12,26 +12,6 @@ class FooterNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: selectedIndex,
-      onTap: onTabSelected,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.calculate),
-          label: "Calculate",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.compare_arrows),
-          label: "Compare",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.auto_awesome),
-          label: "Insights",
-        ),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-      ],
-    );
+    return const SizedBox.shrink();
   }
 }

@@ -69,7 +69,7 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textPrimary = theme.textTheme.bodyLarge?.color ?? Colors.black;
-    final textSecondary = theme.textTheme.bodyMedium?.color?.withOpacity(0.7) ?? Colors.grey;
+    final textSecondary = theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7) ?? Colors.grey;
 
     return Scaffold(
       body: SafeArea(
@@ -88,7 +88,7 @@ class _InsightsPageState extends State<InsightsPage> {
                       decoration: BoxDecoration(
                         color: theme.cardTheme.color,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+                        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
                       ),
                       child: Row(
                         children: [
@@ -153,7 +153,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
                     padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: theme.cardTheme.color, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.dividerColor.withOpacity(0.1))),
+                    decoration: BoxDecoration(color: theme.cardTheme.color, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
                     child: Text("No alerts yet. Search properties and the agent will generate personalized market alerts.", style: TextStyle(color: textSecondary, fontSize: 14)),
                   ),
                 ),
@@ -188,7 +188,7 @@ class _InsightsPageState extends State<InsightsPage> {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: theme.cardTheme.color, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.dividerColor.withOpacity(0.1))),
+        decoration: BoxDecoration(color: theme.cardTheme.color, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1))),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

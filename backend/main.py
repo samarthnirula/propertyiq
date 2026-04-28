@@ -1,535 +1,403 @@
-# --- OLD ---
-from fastapi import FastAPI, Query, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-import requests
 import os
-from urllib.parse import unquote
-from services.listing_search import search_listings
-from census import Census
-from us import states
-import pandas as pd
-import warnings
-from geocodio import Geocodio
-from urllib.request import urlopen
-from json import loads
-
-# --- (agents) ---
-from contextlib import asynccontextmanager
 from typing import Optional
-from sqlalchemy.orm import Session
-from db.database import init_db, get_db, UserInsight, UserProfile
-from agents.behavior_tracker import track_event
-from scheduler import start_scheduler, run_market_pipeline, run_profile_pipeline
+
+import requests
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+
+from agents.area_researcher import answer_followup, deep_research, research_area
+from models.calc_models import CalculationRequest, CalculationResponse
+from services.calculator_service import compute_financials
+from services.listing_search import search_listings
+from services.news_service import get_housing_news
+from services.pipeline_runner import run_market_pipeline, run_profile_pipeline
+from services.predictor_service import run_prediction_for_zip
+from services.stats_service import (
+    get_area_stats_simple,
+    infer_zipcode_from_area_input,
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # backend/
+load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
+
+GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY", "").strip()
+RENTCAST_API_KEY = os.getenv("RENTCAST_API_KEY", "").strip()
+CENSUS_API_KEY = os.getenv("CENSUS_API_KEY", "").strip()
+FRED_API_KEY = os.getenv("FRED_API_KEY", "").strip()
+GEOCODIO_API_KEY = os.getenv("GEOCODIO_API_KEY", "").strip()
+SIMPLYRETS_API_KEY = os.getenv("SIMPLYRETS_API_KEY", "").strip()
+SIMPLYRETS_API_SECRET = os.getenv("SIMPLYRETS_API_SECRET", "").strip()
+
+API_STATUS = {}
+REPORT_CACHE = {}
 
 
-warnings.filterwarnings('ignore')
+def _check_geoapify():
+    if not GEOAPIFY_API_KEY:
+        return "MISSING_KEY"
+    try:
+        url = "https://api.geoapify.com/v1/geocode/autocomplete"
+        r = requests.get(
+            url,
+            params={"text": "75022", "limit": 1, "apiKey": GEOAPIFY_API_KEY},
+            timeout=8,
+        )
+        if r.status_code == 200:
+            return "CONNECTED - Autocomplete reachable"
+        return f"ERROR {r.status_code}"
+    except Exception as e:
+        return f"FAILED - {e}"
 
-headers = {
-    "accept": "application/json",
-    "X-API-Key": os.getenv("RENTCAST_API_KEY")
-}
 
-censusdate_api_key = os.getenv("CENSUSDATA_API_KEY")
-c = Census(censusdate_api_key)
+def _check_rentcast():
+    if not RENTCAST_API_KEY:
+        return "MISSING_KEY"
+    try:
+        url = "https://api.rentcast.io/v1/markets"
+        r = requests.get(
+            url,
+            headers={"X-Api-Key": RENTCAST_API_KEY},
+            params={"zipCode": "75022", "limit": 1},
+            timeout=8,
+        )
+        if r.status_code == 200:
+            return "CONNECTED - Markets endpoint reachable"
+        return f"ERROR {r.status_code}"
+    except Exception as e:
+        return f"FAILED - {e}"
 
-client = Geocodio("GEOCODIO_API_KEY")
 
-GEOAPIFY_KEY = os.getenv("GEOAPIFY_KEY")
-print("GEOAPIFY_KEY loaded: YES")
+def _check_census():
+    if not CENSUS_API_KEY:
+        return "MISSING_KEY"
+    try:
+        url = "https://api.census.gov/data/2023/acs/acs5"
+        r = requests.get(
+            url,
+            params={
+                "get": "B19013_001E",
+                "for": "zip code tabulation area:75022",
+                "key": CENSUS_API_KEY,
+            },
+            timeout=8,
+        )
+        if r.status_code == 200:
+            return "CONNECTED - ACS endpoint reachable"
+        return f"ERROR {r.status_code}"
+    except Exception as e:
+        return f"FAILED - {e}"
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("[Startup] Initializing agent database tables...")
-    init_db()
-    print("[Startup] Starting agent scheduler...")
-    scheduler = start_scheduler()
-    yield
-    scheduler.shutdown()
-    print("[Shutdown] Scheduler stopped.")
+def _check_fred():
+    if not FRED_API_KEY:
+        return "MISSING_KEY"
+    try:
+        url = "https://api.stlouisfed.org/fred/series/observations"
+        r = requests.get(
+            url,
+            params={
+                "series_id": "UNRATE",
+                "api_key": FRED_API_KEY,
+                "file_type": "json",
+                "limit": 1,
+            },
+            timeout=8,
+        )
+        if r.status_code == 200:
+            return "CONNECTED - FRED endpoint reachable"
+        return f"ERROR {r.status_code}"
+    except Exception as e:
+        return f"FAILED - {e}"
 
-app = FastAPI(lifespan=lifespan)
+
+def _check_geocodio():
+    if not GEOCODIO_API_KEY:
+        return "MISSING_KEY"
+    try:
+        url = "https://api.geocod.io/v1.7/geocode"
+        r = requests.get(
+            url,
+            params={"q": "75022", "api_key": GEOCODIO_API_KEY},
+            timeout=8,
+        )
+        if r.status_code == 200:
+            return "CONNECTED - Geocodio endpoint reachable"
+        return f"ERROR {r.status_code}"
+    except Exception as e:
+        return f"FAILED - {e}"
+
+
+def _check_simplyrets():
+    if not SIMPLYRETS_API_KEY:
+        return "MISSING_KEY"
+
+    try:
+        url = "https://api.simplyrets.com/properties"
+
+        # 🔥 fallback: allow missing secret
+        if SIMPLYRETS_API_SECRET:
+            auth = (SIMPLYRETS_API_KEY, SIMPLYRETS_API_SECRET)
+        else:
+            auth = (SIMPLYRETS_API_KEY, "")
+
+        r = requests.get(
+            url,
+            auth=auth,
+            params={"limit": 1},
+            timeout=8,
+        )
+
+        if r.status_code == 200:
+            return "CONNECTED - Properties endpoint reachable"
+        return f"ERROR {r.status_code}"
+
+    except Exception as e:
+        return f"FAILED - {e}"
+
+
+def refresh_api_status():
+    API_STATUS.clear()
+
+    API_STATUS["GEOAPIFY"] = _check_geoapify()
+    API_STATUS["RENTCAST"] = _check_rentcast()
+    API_STATUS["CENSUS"] = _check_census()
+    API_STATUS["FRED"] = _check_fred()
+    API_STATUS["GEOCODIO"] = _check_geocodio()
+    API_STATUS["SIMPLYRETS"] = _check_simplyrets()
+
+    print("ENV CHECK:")
+    print("GEOAPIFY_API_KEY set:", bool(GEOAPIFY_API_KEY))
+    print("RENTCAST_API_KEY set:", bool(RENTCAST_API_KEY))
+    print("CENSUS_API_KEY set:", bool(CENSUS_API_KEY))
+    print("FRED_API_KEY set:", bool(FRED_API_KEY))
+    print("GEOCODIO_API_KEY set:", bool(GEOCODIO_API_KEY))
+    print("SIMPLYRETS_API_KEY set:", bool(SIMPLYRETS_API_KEY))
+    print("SIMPLYRETS_API_SECRET set:", bool(SIMPLYRETS_API_SECRET))
+
+    print("BACKEND STARTUP: API STATUS")
+    print("==============================")
+    for name, status in API_STATUS.items():
+        print(f"{name}: {status}")
+    print("==============================\n")
+
+
+app = FastAPI(title="PropertyIQ Backend")
+
+
+@app.on_event("startup")
+async def startup_event():
+    print("\n🚀 Starting PropertyIQ Backend...")
+    print("[Startup] Skipping database initialization.")
+    refresh_api_status()
+    print("✅ Backend is fully initialized and ready.\n")
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-class CalcRequest(BaseModel):
-    price: float
-    down_payment: float
-    interest_rate: float
-    rent: float
-    monthly_expenses: float
-    expenses: float
-    loan_years: int = 30
-    # gent tracking ---
-    zipcode: Optional[str] = None
-    user_id: Optional[str] = "anonymous"
+@app.get("/")
+def root():
+    return {"message": "PropertyIQ backend running"}
 
-class EventRequest(BaseModel):
-    user_id: str
-    event_type: str   # search | save | calculate | dismiss | compare | view
-    payload: Optional[dict] = {}
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"ok": True, "api_status": API_STATUS}
 
 
-@app.post("/calculate")
-def calculate(req: CalcRequest, db: Session = Depends(get_db)):
-    # added db param + track_event() at bottom 
-    price = max(req.price, 0)
-    down = max(req.down_payment, 0)
-    interest = max(req.interest_rate, 0)
-    rent = max(req.rent, 0)
-    monthly_expenses = max(req.monthly_expenses, 0)
-    one_time_expense = max(req.expenses, 0)
-
-    loan_amount = max(price - down, 0)
-    r = (interest / 100) / 12
-    n = req.loan_years * 12
-
-    if loan_amount == 0:
-        mortgage = 0
-    elif r == 0:
-        mortgage = loan_amount / n
-    else:
-        mortgage = loan_amount * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
-
-    cash_flow = rent - monthly_expenses - mortgage
-    noi = (rent - monthly_expenses) * 12
-    cap_rate = (noi / price) * 100 if price > 0 else 0
-
-    total_cash_invested = down + one_time_expense
-    if total_cash_invested <= 0:
-        total_cash_invested = 1
-
-    annual_cash_flow = cash_flow * 12
-    roi = (annual_cash_flow / total_cash_invested) * 100
-    breakeven_years = (
-        total_cash_invested / annual_cash_flow
-        if annual_cash_flow > 0
-        else None
-    )
-
-    result = {
-        "mortgage_payment": round(mortgage, 2),
-        "cash_flow": round(cash_flow, 2),
-        "cap_rate": round(cap_rate, 2),
-        "roi": round(roi, 2),
-        "breakeven_years": round(breakeven_years, 2) if breakeven_years else None,
-    }
-
-    # log for agent (never breaks the request) 
-    try:
-        track_event(db, req.user_id, "calculate", {
-            "zipcode": req.zipcode,
-            "price": req.price,
-            "roi": result["roi"],
-            "cash_flow": result["cash_flow"],
-        })
-    except Exception:
-        pass
-    return result
+@app.get("/debug/api-status")
+def debug_api_status():
+    return API_STATUS
 
 
 @app.get("/autocomplete")
-def autocomplete(q: str = Query(..., min_length=3)):
+def autocomplete(q: str = Query(..., min_length=2)):
+    if not GEOAPIFY_API_KEY:
+        raise HTTPException(status_code=500, detail="GEOAPIFY_API_KEY missing")
+
     url = "https://api.geoapify.com/v1/geocode/autocomplete"
-    params = {"text": q, "format": "json", "apiKey": GEOAPIFY_KEY, "limit": 6}
     try:
-        resp = requests.get(url, params=params, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+        r = requests.get(
+            url,
+            params={
+                "text": q,
+                "limit": 8,
+                "format": "json",
+                "apiKey": GEOAPIFY_API_KEY,
+                "filter": "countrycode:us",
+            },
+            timeout=12,
+        )
+        r.raise_for_status()
+        payload = r.json()
     except Exception as e:
-        return {"results": [], "error": str(e)}
+        raise HTTPException(status_code=502, detail=f"Autocomplete failed: {e}")
 
     results = []
-    for item in data.get("results", []):
-        results.append({
-            "formatted": item.get("formatted"),
-            "lat": item.get("lat"),
-            "lon": item.get("lon"),
-        })
-    return {"results": results}
+    for item in payload.get("results", []):
+        formatted = item.get("formatted") or item.get("address_line1") or q
+        results.append(
+            {
+                "formatted": formatted,
+                "lat": item.get("lat"),
+                "lon": item.get("lon"),
+            }
+        )
+
+    return results
 
 
 @app.get("/listings")
 def listings(
-    q: str = Query(None, description="Search query (address/keyword)"),
-    city: str = Query(None, description="City filter"),
+    q: Optional[str] = None,
+    city: Optional[str] = None,
     limit: int = Query(12, ge=1, le=50),
     offset: int = Query(0, ge=0),
-    # -user_id and db for agent tracking 
-    user_id: str = Query("anonymous"),
-    db: Session = Depends(get_db),
 ):
     try:
-        items = search_listings(address_query=q, city=city, limit=limit, offset=offset)
-
-        try:
-            track_event(db, user_id, "search", {"query": q, "city": city})
-        except Exception:
-            pass
-
-        return {"results": items}
+        return search_listings(query=q, city=city, limit=limit, offset=offset)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Listing search failed: {e}")
 
 
 @app.get("/image-proxy")
 def image_proxy(url: str):
-    if not url:
-        raise HTTPException(status_code=400, detail="Missing url")
-    remote_url = unquote(url)
     try:
-        r = requests.get(remote_url, stream=True, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+        r = requests.get(url, timeout=20)
         r.raise_for_status()
-        content_type = r.headers.get("content-type", "image/jpeg")
-        return StreamingResponse(r.iter_content(chunk_size=8192), media_type=content_type)
+        content_type = r.headers.get("Content-Type", "image/jpeg")
+        return Response(content=r.content, media_type=content_type)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Image proxy failed: {e}")
 
 
-@app.get("/debug/simplyrets")
-def debug_simplyrets(limit: int = 5, offset: int = 0):
-    # --- OLD: unchanged ---
+@app.post("/calculate", response_model=CalculationResponse)
+def calculate(req: CalculationRequest):
     try:
-        items = search_listings(limit=limit, offset=offset)
-        return {"count": len(items), "sample": items[:1]}
+        result = compute_financials(req)
+        return CalculationResponse(**result)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Calculation failed: {e}")
 
 
-def get_median_household_income(zipcode):
-    variable = "B19013_001E"
-    year = 2023
-    data = c.acs5.get((variable, 'NAME'), {'for': f'zip code tabulation area:{zipcode}'}, year=year)
-    df = pd.DataFrame(data)
-    df.rename(columns={variable: 'Median_Household_Income', 'NAME': "ZCTAName"}, inplace=True)
-    return df[['ZCTAName', 'Median_Household_Income']]
+@app.get("/area-stats")
+def area_stats(
+    area_input: str = Query(..., description="Area label from search box"),
+    zipcode: Optional[str] = Query(None, description="Optional zipcode override"),
+):
+    zip_code = zipcode or infer_zipcode_from_area_input(area_input)
 
-def get_average_property_price(zipcode):
-    url = f"https://api.rentcast.io/v1/markets?zipCode={zipcode}&dataType=Sale&historyRange=1"
-    response = requests.get(url, headers=headers)
-    return response.json()['saleData']['dataByPropertyType'][2]['averagePrice']
+    if not zip_code:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not determine zipcode from input",
+        )
 
-def get_property_price(address):
-    url = f"https://api.rentcast.io/v1/avm/value?address={address}"
-    response = requests.get(url, headers=headers)
-    *_, last = response.json()[0]['taxAssessments'].items()
-    return last[1]['value']
-
-def get_school_district_code(address):
-    response = client.geocode(address, fields=["school"])
-
-    school_district_code = response.results[0].fields.school_districts[0].lea_code
-
-    return school_district_code
-
-def format_grade_levels(lg, hg):
-    grade = ""
-    #only return high grade
-    if(lg is None and hg is not None):
-        grade = hg
-    elif(hg is None and lg is not None):
-        grade = lg
-    elif(hg is None and lg is None):
-        grade = "N/A"
-    else:
-        grade = f"{lg} - {hg}"
-    return grade
-
-
-def format_address(s):
-    parts = [
-        s.get("street_mailing"),
-        s.get("city_mailing"),
-        s.get("state_mailing"),
-        s.get("zip_mailing")
-    ]
-    return ", ".join(p for p in parts if p) if any(parts) else "N/A"
-
-
-def get_school_info(school_district_code):
-    url = "https://educationdata.urban.org/api/v1/schools/ccd/directory/2023/?fips=48"
-    response = urlopen(url)
-    data = loads(response.read())
-
-    schools = []
-    #attributes include school district name, school name, grade_levels, and address
-
-    for school in data["results"]:
-        if school.get("leaid") == school_district_code and school.get("school_status") == 1:
-            school_info = {
-                "school_district_name": school.get("lea_name") if school.get("lea_name") else "N/A",
-                "school_name": school.get("school_name") if school.get("school_name") else "N/A",
-                "grade_levels":  format_grade_levels(school.get("grade_low"), school.get("grade_high")) ,
-                "address": format_address(school)
-            }
-            schools.append(school_info)
-
-    print(schools)
-
-    return schools
-
-
-@app.post("/events")
-def log_event(req: EventRequest, db: Session = Depends(get_db)):
-    """
-    Manually log any user behavior event from Flutter.
-    /calculate and /listings already log automatically above.
-    Use this for: save, dismiss, view, compare actions in the frontend.
-    """
     try:
-        event = track_event(db, req.user_id, req.event_type, req.payload)
-        return {"status": "ok", "event_id": event.id}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        stats = get_area_stats_simple(zip_code, area_input=area_input)
 
-
-@app.get("/insights/{user_id}")
-def get_insights(user_id: str, limit: int = 20, db: Session = Depends(get_db)):
-    """Returns personalized insight cards for a user. Main endpoint for Flutter."""
-    insights = (
-        db.query(UserInsight)
-        .filter(UserInsight.user_id == user_id)
-        .order_by(UserInsight.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-    return {
-        "user_id": user_id,
-        "count": len(insights),
-        "insights": [
-            {
-                "id": i.id,
-                "zipcode": i.zipcode,
-                "headline": i.headline,
-                "explanation": i.explanation,
-                "direction": i.direction,
-                "read": i.read,
-                "created_at": i.created_at.isoformat(),
-            }
-            for i in insights
-        ]
-    }
-
-
-@app.patch("/insights/{insight_id}/read")
-def mark_insight_read(insight_id: str, db: Session = Depends(get_db)):
-    """Mark a specific insight as read."""
-    insight = db.query(UserInsight).filter(UserInsight.id == insight_id).first()
-    if not insight:
-        raise HTTPException(status_code=404, detail="Insight not found")
-    insight.read = "true"
-    db.commit()
-    return {"status": "ok"}
-
-
-@app.get("/profile/{user_id}")
-def get_profile(user_id: str, db: Session = Depends(get_db)):
-    """Returns the synthesized investment profile for a user."""
-    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="No profile found for this user yet")
-    return {
-        "user_id": profile.user_id,
-        "risk_tolerance": profile.risk_tolerance,
-        "investment_style": profile.investment_style,
-        "preferred_zipcodes": profile.preferred_zipcodes,
-        "price_range_min": profile.price_range_min,
-        "price_range_max": profile.price_range_max,
-        "target_cash_flow": profile.target_cash_flow,
-        "investment_horizon": profile.investment_horizon,
-        "raw_summary": profile.raw_summary,
-        "updated_at": profile.updated_at.isoformat(),
-    }
-
-
-@app.post("/pipeline/run")
-def trigger_full_pipeline():
-    """Manually trigger the full market pipeline. Use for testing."""
-    import threading
-    threading.Thread(target=run_market_pipeline, daemon=True).start()
-    return {"status": "Pipeline started in background"}
-
-
-@app.post("/pipeline/profiles")
-def trigger_profile_synthesis():
-    """Manually trigger profile synthesis for all users."""
-    import threading
-    threading.Thread(target=run_profile_pipeline, daemon=True).start()
-    return {"status": "Profile synthesis started in background"}
-
-
-from agents.area_researcher import research_area, deep_research, answer_followup, get_us_housing_news
-
-# Cache so we don't re-research the same area repeatedly
-_area_report_cache = {}
-_deep_report_cache = {}
-_housing_news_cache = {"data": None, "fetched_at": None}
-
-
-class AreaResearchRequest(BaseModel):
-    area_input: str
-
-
-class FollowupRequest(BaseModel):
-    area_input: str
-    question: str
-
-
-@app.post("/area-report")
-def get_area_report(req: AreaResearchRequest, db: Session = Depends(get_db)):
-    area_input = req.area_input.strip()
-    if not area_input:
-        raise HTTPException(status_code=400, detail="area_input is required")
-    if area_input in _area_report_cache:
-        print(f"[AreaReport] Cache hit for: {area_input}")
-        return _area_report_cache[area_input]
-    try:
-        report = research_area(area_input)
-        _area_report_cache[area_input] = report
         try:
-            track_event(db, "system", "area_research", {"area": area_input})
-        except Exception:
-            pass
-        return report
+            prediction_result = run_prediction_for_zip(zip_code)
+        except Exception as e:
+            print(f"[ML] Prediction failed for {zip_code}: {e}")
+            prediction_result = None
+
+        if prediction_result:
+            stats["algorithm_prediction"] = prediction_result.get("predicted_value")
+            stats["algorithm_error_pct"] = prediction_result.get("error_pct")
+            stats["algorithm_k_used"] = prediction_result.get("k")
+            stats["algorithm_neighbors"] = prediction_result.get("neighbors", [])
+            stats["algorithm_confidence_score"] = prediction_result.get("confidence_score")
+        else:
+            stats["algorithm_prediction"] = None
+            stats["algorithm_error_pct"] = None
+            stats["algorithm_k_used"] = None
+            stats["algorithm_neighbors"] = []
+            stats["algorithm_confidence_score"] = None
+
+        return stats
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Research failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Stats generation failed: {str(e)}",
+        )
 
 
-@app.post("/area-report/deep")
-def get_deep_report(req: AreaResearchRequest):
-    area_input = req.area_input.strip()
-    if not area_input:
-        raise HTTPException(status_code=400, detail="area_input is required")
-    if area_input in _deep_report_cache:
-        print(f"[DeepReport] Cache hit for: {area_input}")
-        return _deep_report_cache[area_input]
+@app.get("/area-report")
+def area_report(area_input: str = Query(...)):
+    cache_key = ("report", area_input.strip().lower())
+    if cache_key in REPORT_CACHE:
+        return REPORT_CACHE[cache_key]
+
     try:
-        report = deep_research(area_input)
-        _deep_report_cache[area_input] = report
-        return report
+        result = research_area(area_input)
+        REPORT_CACHE[cache_key] = result
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Deep research failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Area report failed: {e}")
 
 
-@app.post("/area-report/followup")
-def area_followup(req: FollowupRequest):
-    # Check both caches
-    report = _deep_report_cache.get(req.area_input) or _area_report_cache.get(req.area_input)
-    if not report:
-        raise HTTPException(status_code=404, detail="No report found. Call /area-report first.")
+@app.get("/area-report/deep")
+def area_report_deep(area_input: str = Query(...)):
+    cache_key = ("deep", area_input.strip().lower())
+    if cache_key in REPORT_CACHE:
+        return REPORT_CACHE[cache_key]
+
     try:
-        answer = answer_followup(req.area_input, req.question, report)
-        return {"answer": answer}
+        result = deep_research(area_input)
+        REPORT_CACHE[cache_key] = result
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Followup failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Deep area report failed: {e}")
+
+
+@app.get("/area-report/followup")
+def area_report_followup(
+    area_input: str = Query(...),
+    question: str = Query(...),
+):
+    try:
+        return answer_followup(area_input, question)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Follow-up failed: {e}")
 
 
 @app.get("/housing-news")
-def get_housing_news():
-    """Returns recent US housing market news for the Insights tab default cards."""
-    from datetime import timedelta
-    import datetime as dt
-    cache = _housing_news_cache
-    if cache["data"] and cache["fetched_at"]:
-        age = dt.datetime.utcnow() - cache["fetched_at"]
-        if age < timedelta(hours=6):
-            return {"news": cache["data"]}
+def housing_news():
     try:
-        news = get_us_housing_news()
-        _housing_news_cache["data"] = news
-        _housing_news_cache["fetched_at"] = dt.datetime.utcnow()
-        return {"news": news}
+        return get_housing_news()
     except Exception as e:
-        return {"news": [], "error": str(e)}
+        raise HTTPException(status_code=500, detail=f"News fetch failed: {e}")
 
 
 @app.post("/pipeline/run")
-def trigger_full_pipeline():
-    """Manually trigger the full market pipeline. Use for testing."""
-    import threading
-    threading.Thread(target=run_market_pipeline, daemon=True).start()
-    return {"status": "Pipeline started in background"}
+def pipeline_run():
+    try:
+        result = run_market_pipeline()
+        return {"ok": True, "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline run failed: {e}")
 
 
 @app.post("/pipeline/profiles")
-def trigger_profile_synthesis():
-    """Manually trigger profile synthesis for all users."""
-    import threading
-    threading.Thread(target=run_profile_pipeline, daemon=True).start()
-    return {"status": "Profile synthesis started in background"}
-
-
-from agents.area_researcher import research_area, deep_research, answer_followup, get_us_housing_news
-
-# Cache so we don't re-research the same area repeatedly
-_area_report_cache = {}
-
-
-class AreaResearchRequest(BaseModel):
-    area_input: str  # anything: zipcode, address, neighborhood, city
-
-
-class FollowupRequest(BaseModel):
-    area_input: str
-    question: str
-
-
-@app.post("/area-report")
-def get_area_report(req: AreaResearchRequest, db: Session = Depends(get_db)):
-    """
-    Triggers the Area Researcher Agent to autonomously research any area.
-    Input can be a zipcode, address, neighborhood name, or city.
-    Results are cached so repeat calls are instant.
-    """
-    area_input = req.area_input.strip()
-    if not area_input:
-        raise HTTPException(status_code=400, detail="area_input is required")
-
-    if area_input in _area_report_cache:
-        print(f"[AreaReport] Cache hit for: {area_input}")
-        return _area_report_cache[area_input]
-
+def pipeline_profiles():
     try:
-        report = research_area(area_input)
-        _area_report_cache[area_input] = report
-
-        try:
-            track_event(db, "system", "area_research", {"area": area_input})
-        except Exception:
-            pass
-
-        return report
+        result = run_profile_pipeline()
+        return {"ok": True, "result": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Research failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Profile pipeline failed: {e}")
 
 
-@app.post("/area-report/followup")
-def area_followup(req: FollowupRequest):
-    """Answer a follow-up question using already-cached report data."""
-    if req.area_input not in _area_report_cache:
-        raise HTTPException(
-            status_code=404,
-            detail="No report found for this area. Call /area-report first."
-        )
-    try:
-        answer = answer_followup(
-            req.area_input,
-            req.question,
-            _area_report_cache[req.area_input]
-        )
-        return {"answer": answer}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Followup failed: {str(e)}")
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -4,7 +4,7 @@ import 'theme.dart';
 import 'pages/homepage.dart';
 import 'pages/calculator_page.dart';
 import 'pages/compare.dart';
-import 'pages/insights_page.dart'; // NEW
+import 'pages/insights_page.dart';
 import 'pages/profile.dart';
 import 'widgets/app_shell.dart';
 
@@ -39,24 +39,26 @@ class RootNavigator extends StatefulWidget {
 
 class _RootNavigatorState extends State<RootNavigator> {
   int selectedIndex = 0;
+  Key refreshKey = UniqueKey();
 
-  // UPDATED: added InsightsPage at index 3, ProfilePage moved to index 4
-  final pages = const [
+  final List<Widget> pages = const [
     HomePage(),
     CalculatorPage(),
     ComparePage(),
-    InsightsPage(), // NEW
+    InsightsPage(),
     ProfilePage(),
   ];
 
   void onTabSelected(int index) {
-    setState(() => selectedIndex = index);
+    setState(() {
+      selectedIndex = index;
+      refreshKey = UniqueKey();
+    });
   }
-
-  Key refreshKey = UniqueKey();
 
   void refreshCurrentPage() {
     setState(() {
+      selectedIndex = 0;
       refreshKey = UniqueKey();
     });
   }
@@ -67,7 +69,10 @@ class _RootNavigatorState extends State<RootNavigator> {
       selectedIndex: selectedIndex,
       onTabSelected: onTabSelected,
       onLogoTapRefresh: refreshCurrentPage,
-      child: KeyedSubtree(key: refreshKey, child: pages[selectedIndex]),
+      body: KeyedSubtree(
+        key: refreshKey,
+        child: pages[selectedIndex],
+      ),
     );
   }
 }

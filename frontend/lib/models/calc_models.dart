@@ -3,12 +3,8 @@ class CalcRequest {
   final double downPayment;
   final double interestRate;
   final double rent;
-
-  // NEW
-  final double monthlyExpenses;   // recurring monthly operating expenses
-  final double oneTimeExpenses;   // one-time upfront cost (closing/repairs/etc.)
-
-  final int loanYears;
+  final double monthlyExpenses;
+  final double oneTimeExpenses;
 
   CalcRequest({
     required this.price,
@@ -17,44 +13,82 @@ class CalcRequest {
     required this.rent,
     required this.monthlyExpenses,
     required this.oneTimeExpenses,
-    this.loanYears = 30,
   });
 
-  Map<String, dynamic> toJson() => {
-        "price": price,
-        "down_payment": downPayment,
-        "interest_rate": interestRate,
-        "rent": rent,
-        "monthly_expenses": monthlyExpenses,
-        "expenses": oneTimeExpenses, // keep key name "expenses" for one-time cost
-        "loan_years": loanYears,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      "price": price,
+      "down_payment": downPayment,
+      "interest_rate": interestRate,
+      "rent": rent,
+      "monthly_expenses": monthlyExpenses,
+      "one_time_expenses": oneTimeExpenses,
+    };
+  }
 }
 
 class CalcResponse {
-  final double mortgagePayment;
   final double cashFlow;
-  final double capRate;
   final double roi;
+  final double capRate;
+  final double mortgagePayment;
   final double? breakevenYears;
 
   CalcResponse({
-    required this.mortgagePayment,
     required this.cashFlow,
-    required this.capRate,
     required this.roi,
+    required this.capRate,
+    required this.mortgagePayment,
     required this.breakevenYears,
   });
 
+  static double _asDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? 0.0;
+  }
+
+  static double? _asNullableDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
   factory CalcResponse.fromJson(Map<String, dynamic> json) {
     return CalcResponse(
-      mortgagePayment: (json["mortgage_payment"] as num).toDouble(),
-      cashFlow: (json["cash_flow"] as num).toDouble(),
-      capRate: (json["cap_rate"] as num).toDouble(),
-      roi: (json["roi"] as num).toDouble(),
-      breakevenYears: json["breakeven_years"] == null
-          ? null
-          : (json["breakeven_years"] as num).toDouble(),
+      cashFlow: _asDouble(
+        json["cash_flow"] ??
+            json["monthly_cash_flow"] ??
+            json["cashFlow"],
+      ),
+      roi: _asDouble(
+        json["roi"] ??
+            json["cash_on_cash_return"],
+      ),
+      capRate: _asDouble(
+        json["cap_rate"] ?? json["capRate"],
+      ),
+      mortgagePayment: _asDouble(
+        json["mortgage_payment"] ??
+            json["monthly_mortgage"] ??
+            json["mortgagePayment"],
+      ),
+      breakevenYears: _asNullableDouble(
+        json["breakeven_years"] ?? json["breakevenYears"],
+      ),
     );
+  }
+
+  @override
+  String toString() {
+    return 'CalcResponse('
+        'cashFlow: $cashFlow, '
+        'roi: $roi, '
+        'capRate: $capRate, '
+        'mortgagePayment: $mortgagePayment, '
+        'breakevenYears: $breakevenYears'
+        ')';
   }
 }

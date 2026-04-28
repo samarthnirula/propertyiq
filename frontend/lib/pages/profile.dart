@@ -1,4 +1,3 @@
-// pages/profile.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/listing.dart';
@@ -14,7 +13,8 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final NumberFormat _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$', decimalDigits: 0);
+  final NumberFormat _currency =
+      NumberFormat.currency(locale: 'en_US', symbol: '\$', decimalDigits: 0);
 
   void _showThemeDialog(BuildContext context) {
     showDialog(
@@ -34,7 +34,12 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _themeTile(BuildContext context, String title, AppTheme value, Color color) {
+  Widget _themeTile(
+    BuildContext context,
+    String title,
+    AppTheme value,
+    Color color,
+  ) {
     return ListTile(
       leading: CircleAvatar(backgroundColor: color, radius: 10),
       title: Text(title),
@@ -61,15 +66,28 @@ class _ProfilePageState extends State<ProfilePage> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => _showThemeDialog(context),
-                hoverColor: Colors.grey.withOpacity(0.2),
+                hoverColor: Colors.grey.withAlpha(51),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 8.0,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.palette_outlined, size: 20, color: theme.primaryColor),
+                      Icon(
+                        Icons.palette_outlined,
+                        size: 20,
+                        color: theme.primaryColor,
+                      ),
                       const SizedBox(width: 6),
-                      Text("Theme", style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                      Text(
+                        "Theme",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.primaryColor,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -79,13 +97,22 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
       body: saved.isEmpty
-          ? const Center(child: Text("No saved properties yet.\nTap the heart on a listing to save it.", textAlign: TextAlign.center, style: TextStyle(fontSize: 18)))
+          ? const Center(
+              child: Text(
+                "No saved properties yet.\nTap the heart on a listing to save it.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18),
+              ),
+            )
           : Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Saved Properties", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const Text(
+                    "Saved Properties",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: ListView.builder(
@@ -99,23 +126,50 @@ class _ProfilePageState extends State<ProfilePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("${l.address}, ${l.city} ${l.state} ${l.zip}", style: const TextStyle(fontWeight: FontWeight.w600)),
-                                const Divider(),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [Text("Beds: ${l.beds ?? '-'}"), Text("Baths: ${l.baths ?? '-'}"), Text("Sqft: ${l.sqft ?? '-'}")]
+                                Text(
+                                  "${l.address}, ${l.city} ${l.state} ${l.zip}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const Divider(),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [const Text("Price"), Text(l.price == null ? "-" : _currency.format(l.price))]
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text("Beds: ${l.beds ?? '-'}"),
+                                    Text("Baths: ${l.baths ?? '-'}"),
+                                    Text("Sqft: ${l.sqft ?? '-'}"),
+                                  ],
+                                ),
+                                const Divider(),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text("Price"),
+                                    Text(
+                                      l.price == null
+                                          ? "-"
+                                          : _currency.format(l.price),
+                                    ),
+                                  ],
                                 ),
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: TextButton.icon(
-                                    onPressed: () { SavedListingsStore.removeById(l.id); setState(() {}); },
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                    label: const Text("Remove", style: TextStyle(color: Colors.red)),
+                                    onPressed: () {
+                                      SavedListingsStore.removeById(l.id);
+                                      setState(() {});
+                                    },
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.red,
+                                    ),
+                                    label: const Text(
+                                      "Remove",
+                                      style: TextStyle(color: Colors.red),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -127,7 +181,16 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton(onPressed: () { SavedListingsStore.clear(); setState(() {}); }, child: const Text("Clear all", style: TextStyle(color: Colors.red))),
+                    child: TextButton(
+                      onPressed: () {
+                        SavedListingsStore.clear();
+                        setState(() {});
+                      },
+                      child: const Text(
+                        "Clear all",
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
                   ),
                 ],
               ),

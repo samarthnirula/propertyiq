@@ -4,10 +4,12 @@ class Listing {
   final String city;
   final String state;
   final String zip;
-  final int? price;
+
+  final double? price;
   final double? beds;
   final double? baths;
   final int? sqft;
+
   final String? photo;
 
   Listing({
@@ -16,25 +18,71 @@ class Listing {
     required this.city,
     required this.state,
     required this.zip,
-    required this.price,
-    required this.beds,
-    required this.baths,
-    required this.sqft,
-    required this.photo,
+    this.price,
+    this.beds,
+    this.baths,
+    this.sqft,
+    this.photo,
   });
+
+  static double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
 
   factory Listing.fromJson(Map<String, dynamic> json) {
     return Listing(
-      id: (json["id"] ?? "").toString(),
-      address: (json["address"] ?? "").toString(),
-      city: (json["city"] ?? "").toString(),
-      state: (json["state"] ?? "").toString(),
-      zip: (json["zip"] ?? "").toString(),
-      price: json["price"] == null ? null : (json["price"] as num).toInt(),
-      beds: json["beds"] == null ? null : (json["beds"] as num).toDouble(),
-      baths: json["baths"] == null ? null : (json["baths"] as num).toDouble(),
-      sqft: json["sqft"] == null ? null : (json["sqft"] as num).toInt(),
-      photo: json["photo"]?.toString(),
+      id: (json['id'] ?? '').toString(),
+      address: (json['address'] ?? '').toString(),
+      city: (json['city'] ?? '').toString(),
+      state: (json['state'] ?? '').toString(),
+      zip: (json['zip'] ?? '').toString(),
+
+      price: _asDouble(json['price']),
+      beds: _asDouble(json['beds']),
+      baths: _asDouble(json['baths']),
+      sqft: _asInt(json['sqft']),
+
+      photo: json['photo']?.toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'address': address,
+      'city': city,
+      'state': state,
+      'zip': zip,
+      'price': price,
+      'beds': beds,
+      'baths': baths,
+      'sqft': sqft,
+      'photo': photo,
+    };
+  }
+
+  @override
+  String toString() {
+    return 'Listing('
+        'id: $id, '
+        'address: $address, '
+        'city: $city, '
+        'state: $state, '
+        'zip: $zip, '
+        'price: $price, '
+        'beds: $beds, '
+        'baths: $baths, '
+        'sqft: $sqft'
+        ')';
   }
 }
