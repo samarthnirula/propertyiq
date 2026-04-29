@@ -5,7 +5,6 @@ import 'pages/homepage.dart';
 import 'pages/calculator_page.dart';
 import 'pages/compare.dart';
 import 'pages/insights_page.dart';
-import 'pages/profile.dart';
 import 'widgets/app_shell.dart';
 
 final ValueNotifier<AppTheme> themeNotifier = ValueNotifier(
@@ -46,7 +45,6 @@ class _RootNavigatorState extends State<RootNavigator> {
     CalculatorPage(),
     ComparePage(),
     InsightsPage(),
-    ProfilePage(),
   ];
 
   void onTabSelected(int index) {

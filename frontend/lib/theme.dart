@@ -1,61 +1,88 @@
 import 'package:flutter/material.dart';
 
-enum AppTheme { classicLight, softBlue, deepDark, midnight }
-
-ThemeData getAppTheme(AppTheme selection) {
-  switch (selection) {
-    case AppTheme.classicLight:
-      return _buildTheme(Brightness.light, Colors.blueAccent, Colors.white);
-    case AppTheme.softBlue:
-      return _buildTheme(Brightness.light, Colors.cyan, const Color(0xFFF0F7F9));
-    case AppTheme.deepDark:
-      return _buildTheme(Brightness.dark, Colors.indigoAccent, const Color(0xFF121212));
-    case AppTheme.midnight:
-      return _buildTheme(Brightness.dark, Colors.deepPurpleAccent, Colors.black);
-  }
+enum AppTheme {
+  classicLight,
+  softLight,
+  darkBlue,
+  midnightDark,
 }
 
-ThemeData _buildTheme(Brightness brightness, Color primary, Color bg) {
-  return ThemeData(
-    brightness: brightness,
-    primaryColor: primary,
-    scaffoldBackgroundColor: bg,
-    
-    appBarTheme: AppBarTheme(
-      backgroundColor: bg,
-      foregroundColor: brightness == Brightness.light ? Colors.black : Colors.white,
-      elevation: 0,
-      centerTitle: true,
-      iconTheme: IconThemeData(
-        color: brightness == Brightness.light ? Colors.black : Colors.white,
-      ),
-    ),
-    
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: primary, width: 2),
-      ),
-      filled: true,
-      fillColor: brightness == Brightness.light ? const Color(0xFFF3F4F6) : Colors.grey.shade800,
-      labelStyle: TextStyle(color: Colors.grey.shade600),
-    ),
-    
-    cardTheme: CardThemeData(
-      color: brightness == Brightness.light ? Colors.white : Colors.grey.shade900,
-      elevation: 3,
-      shadowColor: Colors.black.withValues(alpha: 0.1),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-    ),
-  );
+ThemeData getAppTheme(AppTheme theme) {
+  switch (theme) {
+    case AppTheme.classicLight:
+      return ThemeData(
+        brightness: Brightness.light,
+        primaryColor: const Color(0xFF2563EB), // Classic Blue
+        scaffoldBackgroundColor: Colors.white,
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.08),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        dividerColor: Colors.grey.shade300,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
+      );
+
+    case AppTheme.softLight:
+      return ThemeData(
+        brightness: Brightness.light,
+        primaryColor: const Color(0xFF3B82F6), // Softer Blue
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC), // Softer White/Slate
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 1,
+          shadowColor: Colors.black.withValues(alpha: 0.04),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        dividerColor: const Color(0xFFE2E8F0),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF8FAFC),
+          foregroundColor: Color(0xFF334155),
+          elevation: 0,
+        ),
+      );
+
+    case AppTheme.darkBlue:
+      return ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF60A5FA), // Light Accent Blue
+        scaffoldBackgroundColor: const Color(0xFF1E293B), // Lighter Black/Slate
+        cardTheme: CardThemeData(
+          color: const Color(0xFF334155),
+          elevation: 4,
+          shadowColor: Colors.black.withValues(alpha: 0.3),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        dividerColor: const Color(0xFF475569),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E293B),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+      );
+
+    case AppTheme.midnightDark:
+      return ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF818CF8), // Indigo Accent
+        scaffoldBackgroundColor: const Color(0xFF0B0F19), // Very Dark Black/Navy
+        cardTheme: CardThemeData(
+          color: const Color(0xFF111827),
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        dividerColor: const Color(0xFF1F2937),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0B0F19),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+      );
+  }
 }

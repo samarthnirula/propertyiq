@@ -8,7 +8,6 @@ import '../services/api_service.dart';
 import '../models/address_suggesstion.dart';
 import '../models/listing.dart';
 import '../models/area_stats.dart';
-import '../services/saved_listings_store.dart';
 import '../widgets/area_stats_panel.dart';
 import 'area_report_page.dart';
 
@@ -98,33 +97,6 @@ class _HomePageState extends State<HomePage> {
   double _scoreForListing(Listing l) {
     final seed = l.id.hashCode;
     return (seed.abs() % 101).toDouble();
-  }
-
-  Color _zipColor(String zip) {
-    switch (zip) {
-      case '75001':
-        return const Color(0xFF2563EB);
-      case '75002':
-        return const Color(0xFF7C3AED);
-      case '75006':
-        return const Color(0xFF0F766E);
-      case '75007':
-        return const Color(0xFFEA580C);
-      case '75009':
-        return const Color(0xFFDB2777);
-      case '75010':
-        return const Color(0xFF16A34A);
-      case '75013':
-        return const Color(0xFFDC2626);
-      case '75019':
-        return const Color(0xFF0891B2);
-      case '75020':
-        return const Color(0xFF9333EA);
-      case '75021':
-        return const Color(0xFFCA8A04);
-      default:
-        return const Color(0xFF1D4ED8);
-    }
   }
 
   _ZipMarkerData? _zipData(String zip) {
@@ -415,24 +387,24 @@ class _HomePageState extends State<HomePage> {
     _loadInitialListings();
   }
 
-  Widget _buildHeroSection() {
+  Widget _buildHeroSection(ThemeData theme) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1D4ED8),
-            Color(0xFF06B6D4),
+            const Color(0xFF0F172A),
+            theme.primaryColor,
+            theme.primaryColor.withValues(alpha: 0.6),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.18),
+            color: theme.primaryColor.withValues(alpha: 0.18),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -464,37 +436,40 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTopZipCodesSection() {
+  Widget _buildTopZipCodesSection(ThemeData theme) {
+    final textPrimary = theme.textTheme.bodyLarge?.color;
+    final textSecondary = theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.workspace_premium, color: Color(0xFFF59E0B)),
-              SizedBox(width: 10),
+              Icon(Icons.workspace_premium, color: theme.primaryColor),
+              const SizedBox(width: 10),
               Text(
                 'Top 5 ZIP Codes',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Click any ZIP code below to run the same area search instantly.',
             style: TextStyle(
-              color: Color(0xFF475569),
+              color: textSecondary,
               height: 1.4,
             ),
           ),
@@ -505,7 +480,7 @@ class _HomePageState extends State<HomePage> {
             children: _topZipCodes.map((item) {
               final zip = item['zip']!;
               final error = item['error']!;
-              final color = _zipColor(zip);
+              final color = theme.primaryColor;
               final isActive = _activeMapZip == zip;
 
               return InkWell(
@@ -517,10 +492,7 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [
-                        color,
-                        color.withValues(alpha: 0.78),
-                      ],
+                      colors: [color, color.withValues(alpha: 0.78)],
                     ),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
@@ -538,31 +510,11 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        zip,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                      Text(zip, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Prediction Error',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
+                      const Text('Prediction Error', style: TextStyle(color: Colors.white70, fontSize: 12)),
                       const SizedBox(height: 4),
-                      Text(
-                        error,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Text(error, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
@@ -574,7 +526,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMapLegendChip(Color color, String label) {
+  Widget _buildMapLegendChip(Color color, String label, Color? textColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
@@ -596,8 +548,8 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF334155),
+            style: TextStyle(
+              color: textColor,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -606,7 +558,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildZipMapSection() {
+  Widget _buildZipMapSection(ThemeData theme) {
+    final textPrimary = theme.textTheme.bodyLarge?.color;
+    final textSecondary = theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8);
+    final isDark = theme.brightness == Brightness.dark;
+
     final markers = _zipLocations.map((point) {
       final isActive = _activeMapZip == point.zip;
       return Marker(
@@ -615,8 +571,9 @@ class _HomePageState extends State<HomePage> {
         height: isActive ? 52 : 46,
         child: _RealMapZipMarker(
           zip: point.zip,
-          color: _zipColor(point.zip),
+          color: theme.primaryColor.withValues(alpha: 0.5), // Softened inactive color
           active: isActive,
+          activeColor: theme.primaryColor,
           onTap: () => _searchZipFromExplorer(point.zip),
         ),
       );
@@ -627,46 +584,39 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFF8FAFC),
-            Color(0xFFEFF6FF),
-            Color(0xFFF5F3FF),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: theme.cardTheme.color,
+        border: Border.all(color: theme.dividerColor),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.map_rounded, color: Color(0xFF7C3AED)),
-              SizedBox(width: 10),
+              Icon(Icons.map_rounded, color: theme.primaryColor),
+              const SizedBox(width: 10),
               Text(
                 'ZIP Map Explorer',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: textPrimary,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Explore ZIP codes on a real map. Click any marker to load the same analytics and listings as a manual ZIP search.',
             style: TextStyle(
-              color: Color(0xFF475569),
+              color: textSecondary,
               height: 1.45,
             ),
           ),
@@ -675,10 +625,10 @@ class _HomePageState extends State<HomePage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildMapLegendChip(const Color(0xFF2563EB), 'Top ZIP'),
-              _buildMapLegendChip(const Color(0xFF16A34A), 'Growth'),
-              _buildMapLegendChip(const Color(0xFFEA580C), 'Hot area'),
-              _buildMapLegendChip(const Color(0xFF7C3AED), 'Selected ZIP'),
+              _buildMapLegendChip(const Color(0xFF2563EB), 'Top ZIP', textPrimary),
+              _buildMapLegendChip(const Color(0xFF16A34A), 'Growth', textPrimary),
+              _buildMapLegendChip(const Color(0xFFEA580C), 'Hot area', textPrimary),
+              _buildMapLegendChip(theme.primaryColor, 'Selected ZIP', textPrimary),
             ],
           ),
           const SizedBox(height: 18),
@@ -687,7 +637,7 @@ class _HomePageState extends State<HomePage> {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFDDE7F3)),
+              border: Border.all(color: theme.dividerColor),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(24),
@@ -725,30 +675,34 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildSearchSection() {
+  Widget _buildSearchSection(ThemeData theme) {
+    final textPrimary = theme.textTheme.bodyLarge?.color;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
         ],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Search Market Intelligence',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
+              color: textPrimary,
             ),
           ),
           const SizedBox(height: 14),
@@ -758,6 +712,7 @@ class _HomePageState extends State<HomePage> {
                 child: TextField(
                   controller: searchController,
                   onChanged: onSearchChanged,
+                  style: TextStyle(color: textPrimary),
                   onSubmitted: (_) {
                     debounce?.cancel();
                     setState(() => suggestions = []);
@@ -765,30 +720,22 @@ class _HomePageState extends State<HomePage> {
                   },
                   decoration: InputDecoration(
                     hintText: "Search ZIP or address",
+                    hintStyle: TextStyle(color: textPrimary?.withValues(alpha: 0.5)),
                     filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: Color(0xFF2563EB),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 14,
-                    ),
+                    fillColor: isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF8FAFC),
+                    prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      borderSide: BorderSide(color: theme.dividerColor),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      borderSide: BorderSide(color: theme.dividerColor),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF2563EB),
-                        width: 1.4,
-                      ),
+                      borderSide: BorderSide(color: theme.primaryColor, width: 1.4),
                     ),
                   ),
                 ),
@@ -801,15 +748,10 @@ class _HomePageState extends State<HomePage> {
                   _runSearch();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: theme.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: const Text("Search"),
               ),
@@ -817,14 +759,10 @@ class _HomePageState extends State<HomePage> {
               OutlinedButton(
                 onPressed: _clearSearch,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF334155),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  foregroundColor: textPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  side: BorderSide(color: theme.dividerColor),
                 ),
                 child: const Text("Clear"),
               ),
@@ -836,24 +774,19 @@ class _HomePageState extends State<HomePage> {
               constraints: const BoxConstraints(maxHeight: 180),
               child: Card(
                 elevation: 0,
-                color: const Color(0xFFF8FAFC),
+                color: isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF8FAFC),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  side: BorderSide(color: theme.dividerColor),
                 ),
                 child: ListView(
                   shrinkWrap: true,
                   children: suggestions
-                      .map(
-                        (s) => ListTile(
-                          leading: const Icon(
-                            Icons.location_on_outlined,
-                            color: Color(0xFF7C3AED),
-                          ),
-                          title: Text(s.formatted),
-                          onTap: () => selectSuggestion(s),
-                        ),
-                      )
+                      .map((s) => ListTile(
+                            leading: Icon(Icons.location_on_outlined, color: theme.primaryColor),
+                            title: Text(s.formatted, style: TextStyle(color: textPrimary)),
+                            onTap: () => selectSuggestion(s),
+                          ))
                       .toList(),
                 ),
               ),
@@ -863,26 +796,25 @@ class _HomePageState extends State<HomePage> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: isDark ? theme.primaryColor.withValues(alpha: 0.15) : const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
+              border: Border.all(
+                color: isDark ? theme.primaryColor.withValues(alpha: 0.3) : const Color(0xFFBFDBFE),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   status,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E3A8A),
+                    color: isDark ? theme.primaryColor : const Color(0xFF1E3A8A),
                   ),
                 ),
                 if (listingsError != null) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    listingsError!,
-                    style: const TextStyle(color: Color(0xFF7C2D12)),
-                  ),
+                  Text(listingsError!, style: const TextStyle(color: Colors.redAccent)),
                 ],
               ],
             ),
@@ -892,20 +824,49 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget listingCard(Listing l) {
+  Widget _infoChip(IconData icon, String label, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black12 : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: theme.textTheme.bodyMedium?.color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.textTheme.bodyLarge?.color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget listingCard(Listing l, ThemeData theme) {
     final title = "${l.address}, ${l.city} ${l.state} ${l.zip}";
     final beds = l.beds?.toStringAsFixed(0) ?? "-";
     final baths = l.baths?.toStringAsFixed(1) ?? "-";
     final sqft = l.sqft?.toString() ?? "-";
     final img = proxiedImageUrl(l.photo);
     final score = _scoreForListing(l);
-    final isSaved = SavedListingsStore.isSaved(l.id);
     final zipcode = l.zip;
+    
+    final textPrimary = theme.textTheme.bodyLarge?.color;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      color: theme.cardTheme.color,
+      shadowColor: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
       ),
@@ -924,7 +885,7 @@ class _HomePageState extends State<HomePage> {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        color: Colors.grey.shade100,
+                        color: Colors.grey.withValues(alpha: 0.1),
                         child: const Center(
                           child: Text("Image unavailable"),
                         ),
@@ -933,7 +894,7 @@ class _HomePageState extends State<HomePage> {
                   )
                 else
                   Container(
-                    color: Colors.grey.shade100,
+                    color: Colors.grey.withValues(alpha: 0.1),
                     child: const Center(child: Text("No image")),
                   ),
                 Positioned(
@@ -957,29 +918,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Material(
-                    color: Colors.black.withAlpha(89),
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      tooltip: isSaved ? "Unsave" : "Save",
-                      icon: Icon(
-                        isSaved ? Icons.favorite : Icons.favorite_border,
-                        color: isSaved ? Colors.redAccent : Colors.white,
-                      ),
-                      onPressed: () {
-                        if (isSaved) {
-                          SavedListingsStore.removeById(l.id);
-                        } else {
-                          SavedListingsStore.add(l);
-                        }
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -992,10 +930,10 @@ class _HomePageState extends State<HomePage> {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
-                    color: Color(0xFF0F172A),
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1003,9 +941,9 @@ class _HomePageState extends State<HomePage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _infoChip(Icons.bed_outlined, "Beds: $beds"),
-                    _infoChip(Icons.bathtub_outlined, "Baths: $baths"),
-                    _infoChip(Icons.square_foot_outlined, "Sqft: $sqft"),
+                    _infoChip(Icons.bed_outlined, "Beds: $beds", theme),
+                    _infoChip(Icons.bathtub_outlined, "Baths: $baths", theme),
+                    _infoChip(Icons.square_foot_outlined, "Sqft: $sqft", theme),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -1016,28 +954,28 @@ class _HomePageState extends State<HomePage> {
                     horizontal: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
+                    color: isDark ? theme.primaryColor.withValues(alpha: 0.15) : const Color(0xFFF0FDF4),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                    border: Border.all(color: isDark ? theme.primaryColor.withValues(alpha: 0.3) : const Color(0xFFBBF7D0)),
                   ),
                   child: Center(
                     child: Text(
                       l.price != null
                           ? "Price: ${_currency.format(l.price)}"
                           : "Price: -",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF166534),
+                        color: isDark ? theme.primaryColor : const Color(0xFF166534),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
+                Text(
                   "Investment Score",
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF334155),
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1049,8 +987,8 @@ class _HomePageState extends State<HomePage> {
                     icon: const Icon(Icons.auto_awesome, size: 16),
                     label: const Text("Analyze Area"),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF7C3AED),
-                      side: const BorderSide(color: Color(0xFF7C3AED)),
+                      foregroundColor: theme.primaryColor,
+                      side: BorderSide(color: theme.primaryColor),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1077,35 +1015,14 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _infoChip(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF475569)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF334155),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textPrimary = theme.textTheme.bodyLarge?.color;
+    final textSecondary = theme.textTheme.bodyMedium?.color;
+
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: theme.scaffoldBackgroundColor,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: CustomScrollView(
@@ -1115,13 +1032,13 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeroSection(),
+                  _buildHeroSection(theme),
                   const SizedBox(height: 18),
-                  _buildZipMapSection(),
+                  _buildZipMapSection(theme),
                   const SizedBox(height: 18),
-                  _buildTopZipCodesSection(),
+                  _buildTopZipCodesSection(theme),
                   const SizedBox(height: 18),
-                  _buildSearchSection(),
+                  _buildSearchSection(theme),
                   const SizedBox(height: 14),
                   if (_showStats) ...[
                     Container(
@@ -1149,17 +1066,17 @@ class _HomePageState extends State<HomePage> {
                   child: Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.cardTheme.color,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: theme.dividerColor),
                     ),
                     child: Text(
                       areaStats != null
                           ? "Area snapshot loaded, but no listings matched this search."
                           : "No listings to display yet.",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                        color: Color(0xFF475569),
+                        color: textSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                       textAlign: TextAlign.center,
@@ -1172,15 +1089,15 @@ class _HomePageState extends State<HomePage> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
-                    children: const [
-                      Icon(Icons.home_work_outlined, color: Color(0xFF2563EB)),
-                      SizedBox(width: 8),
+                    children: [
+                      Icon(Icons.home_work_outlined, color: theme.primaryColor),
+                      const SizedBox(width: 8),
                       Text(
                         "Property Listings",
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
+                          color: textPrimary,
                         ),
                       ),
                     ],
@@ -1195,7 +1112,7 @@ class _HomePageState extends State<HomePage> {
 
                   return SliverGrid(
                     delegate: SliverChildBuilderDelegate(
-                      (context, i) => listingCard(listings[i]),
+                      (context, i) => listingCard(listings[i], theme),
                       childCount: listings.length,
                     ),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -1230,12 +1147,14 @@ class _RealMapZipMarker extends StatelessWidget {
   final String zip;
   final Color color;
   final bool active;
+  final Color activeColor;
   final VoidCallback onTap;
 
   const _RealMapZipMarker({
     required this.zip,
     required this.color,
     required this.active,
+    required this.activeColor,
     required this.onTap,
   });
 
@@ -1250,15 +1169,15 @@ class _RealMapZipMarker extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: active ? const Color(0xFF7C3AED) : Colors.white,
+            color: active ? activeColor : Colors.white,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: active ? const Color(0xFF7C3AED) : color.withValues(alpha: 0.60),
+              color: active ? activeColor : color.withValues(alpha: 0.60),
               width: active ? 2 : 1.4,
             ),
             boxShadow: [
               BoxShadow(
-                color: (active ? const Color(0xFF7C3AED) : color)
+                color: (active ? activeColor : color)
                     .withValues(alpha: active ? 0.30 : 0.18),
                 blurRadius: active ? 16 : 10,
                 offset: const Offset(0, 5),

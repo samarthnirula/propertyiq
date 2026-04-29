@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // <--- Added this import
 import '../models/address_suggesstion.dart';
 import '../models/area_stats.dart';
 import '../services/api_service.dart';
@@ -25,6 +26,9 @@ class _ComparePageState extends State<ComparePage> {
   bool _rightLoadingStats = false;
   String _rightStatus = "Search for a property address or ZIP";
   AreaStats? _rightStats;
+
+  // Added currency formatter to handle the big numbers
+  final NumberFormat _currency = NumberFormat.currency(locale: 'en_US', symbol: '\$', decimalDigits: 0);
 
   @override
   void dispose() {
@@ -208,19 +212,60 @@ class _ComparePageState extends State<ComparePage> {
     });
   }
 
-  Widget _statRow(String label, String value) {
+  Widget _buildSectionHeader(String title, IconData icon, ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.only(top: 20, bottom: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Icon(icon, size: 16, color: theme.primaryColor),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              letterSpacing: 0.5,
+              color: theme.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statRow(String label, String value, IconData icon, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black12 : theme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: theme.textTheme.bodyMedium?.color),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              value,
-              textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
+              label,
+              style: TextStyle(
+                color: theme.textTheme.bodyMedium?.color,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: theme.textTheme.bodyLarge?.color,
             ),
           ),
         ],
@@ -235,71 +280,123 @@ class _ComparePageState extends State<ComparePage> {
   }) {
     if (fallbackLabel.trim().isEmpty) return const SizedBox.shrink();
 
-    return Card(
-      color: theme.cardTheme.color,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-const Text(
-  "Market Snapshot",
-  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-),
-            const SizedBox(height: 8),
-            _statRow("Area", stats?.label ?? fallbackLabel),
-            _statRow(
-              "Median Salary",
-              stats?.medianSalary == null ? "—" : "\$${stats!.medianSalary}",
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.dividerColor),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-            _statRow(
-              "Economic Growth",
-              stats?.economicGrowth == null
-                  ? "—"
-                  : "${stats!.economicGrowth!.toStringAsFixed(1)}%",
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.primaryColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  "Snapshot",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  stats?.label ?? fallbackLabel,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Divider(),
+
+          // Market Basics Section
+          _buildSectionHeader("MARKET BASICS", Icons.home_work_outlined, theme),
+          _statRow(
+            "Average Property Price",
+            stats?.averagePropertyPrice == null ? "—" : _currency.format(stats!.averagePropertyPrice),
+            Icons.sell_outlined,
+            theme,
+          ),
+          _statRow(
+            "Median Rent",
+            stats?.medianRentEstimate == null ? "—" : _currency.format(stats!.medianRentEstimate),
+            Icons.real_estate_agent_outlined,
+            theme,
+          ),
+
+          // Economy Section
+          _buildSectionHeader("ECONOMY", Icons.trending_up_outlined, theme),
+          _statRow(
+            "Median Salary",
+            stats?.medianSalary == null ? "—" : _currency.format(stats!.medianSalary),
+            Icons.payments_outlined,
+            theme,
+          ),
+          _statRow(
+            "Economic Growth",
+            stats?.economicGrowth == null ? "—" : "${stats!.economicGrowth!.toStringAsFixed(1)}%",
+            Icons.show_chart_outlined,
+            theme,
+          ),
+
+          // AI Analytics Section
+          _buildSectionHeader("AI PROJECTIONS", Icons.auto_awesome_outlined, theme),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black12 : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
             ),
-            _statRow(
-              "Average Property Price",
-              stats?.averagePropertyPrice == null
-                  ? "—"
-                  : "\$${stats!.averagePropertyPrice}",
+            child: Column(
+              children: [
+                _statRow(
+                  "Predicted Value",
+                  stats?.algorithmPrediction == null ? "—" : _currency.format(stats!.algorithmPrediction!.round()),
+                  Icons.online_prediction_outlined,
+                  theme,
+                ),
+                _statRow(
+                  "Model Confidence",
+                  stats?.algorithmConfidenceScore == null ? "—" : "${(stats!.algorithmConfidenceScore! * 100).toStringAsFixed(0)}%",
+                  Icons.verified_outlined,
+                  theme,
+                ),
+                _statRow(
+                  "Margin of Error",
+                  stats?.algorithmErrorPct == null ? "—" : "±${stats!.algorithmErrorPct!.toStringAsFixed(1)}%",
+                  Icons.analytics_outlined,
+                  theme,
+                ),
+              ],
             ),
-            _statRow(
-              "Median Rent",
-              stats?.medianRentEstimate == null
-                  ? "—"
-                  : "\$${stats!.medianRentEstimate}",
-            ),
-            _statRow(
-  "AI Predicted Value",
-  stats?.algorithmPrediction == null
-      ? "—"
-      : "\$${stats!.algorithmPrediction!.round()}",
-),
-_statRow(
-  "AI Confidence",
-  stats?.algorithmConfidenceScore == null
-      ? "—"
-      : "${(stats!.algorithmConfidenceScore! * 100).toStringAsFixed(0)}%",
-),
-_statRow(
-  "Model Error",
-  stats?.algorithmErrorPct == null
-      ? "—"
-      : "${stats!.algorithmErrorPct!.toStringAsFixed(1)}%",
-),
-const SizedBox(height: 10),
-if (stats?.algorithmPrediction != null)
-  Text(
-    "AI valuation powered by comparable ZIP markets",
-    style: TextStyle(
-      fontSize: 12,
-      color: Colors.grey.shade600,
-      fontStyle: FontStyle.italic,
-    ),
-  ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -318,15 +415,20 @@ if (stats?.algorithmPrediction != null)
     required ThemeData theme,
   }) {
     final q = controller.text.trim();
+    final isDark = theme.brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           sideTitle,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: theme.textTheme.bodyLarge?.color,
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
@@ -334,9 +436,26 @@ if (stats?.algorithmPrediction != null)
                 controller: controller,
                 onChanged: onChanged,
                 onSubmitted: (_) => onSearch(),
-                decoration: const InputDecoration(
-                  labelText: "Search address / ZIP",
-                  prefixIcon: Icon(Icons.search),
+                style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+                decoration: InputDecoration(
+                  hintText: "Search address / ZIP",
+                  hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6)),
+                  filled: true,
+                  fillColor: isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF8FAFC),
+                  prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: theme.dividerColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: theme.dividerColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+                  ),
                 ),
               ),
             ),
@@ -345,13 +464,22 @@ if (stats?.algorithmPrediction != null)
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primaryColor,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
               ),
               onPressed: loading ? null : onSearch,
-              child: const Text("Search"),
+              child: const Text("Search", style: TextStyle(fontWeight: FontWeight.w600)),
             ),
             const SizedBox(width: 10),
             OutlinedButton(
               onPressed: loading ? null : onClear,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.textTheme.bodyLarge?.color,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                side: BorderSide(color: theme.dividerColor),
+              ),
               child: const Text("Clear"),
             ),
           ],
@@ -361,14 +489,23 @@ if (stats?.algorithmPrediction != null)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 220),
             child: Card(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.1),
+              color: isDark ? theme.scaffoldBackgroundColor : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: theme.dividerColor),
+              ),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: suggestions.length,
                 itemBuilder: (context, index) {
                   final s = suggestions[index];
                   return ListTile(
+                    leading: Icon(Icons.location_on_outlined, color: theme.primaryColor),
                     title: Text(
                       s.formatted.isEmpty ? "(Unknown)" : s.formatted,
+                      style: TextStyle(color: theme.textTheme.bodyLarge?.color),
                     ),
                     onTap: () => onSelectSuggestion(s),
                   );
@@ -376,18 +513,31 @@ if (stats?.algorithmPrediction != null)
               ),
             ),
           ),
-        const SizedBox(height: 10),
-        Text(
-          status,
-          style: TextStyle(color: theme.textTheme.bodyMedium?.color),
-        ),
         const SizedBox(height: 12),
-        if (loading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: LinearProgressIndicator(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? theme.primaryColor.withValues(alpha: 0.15) : theme.primaryColor.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
           ),
-        _statsCard(stats, fallbackLabel: q, theme: theme),
+          child: Text(
+            status,
+            style: TextStyle(
+              color: isDark ? theme.primaryColor : theme.textTheme.bodyLarge?.color,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (loading)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: CircularProgressIndicator(color: theme.primaryColor),
+            ),
+          ),
+        if (!loading) _statsCard(stats, fallbackLabel: q, theme: theme),
       ],
     );
   }
@@ -396,55 +546,61 @@ if (stats?.algorithmPrediction != null)
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _sidePanel(
-              sideTitle: "Property A",
-              controller: _leftController,
-              onChanged: _onLeftChanged,
-              onSearch: _runLeftStatsSearch,
-              onClear: _clearLeft,
-              loading: _leftLoadingStats,
-              status: _leftStatus,
-              suggestions: _leftSuggestions,
-              onSelectSuggestion: _selectLeftSuggestion,
-              stats: _leftStats,
-              theme: theme,
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _sidePanel(
+                sideTitle: "Property Market A",
+                controller: _leftController,
+                onChanged: _onLeftChanged,
+                onSearch: _runLeftStatsSearch,
+                onClear: _clearLeft,
+                loading: _leftLoadingStats,
+                status: _leftStatus,
+                suggestions: _leftSuggestions,
+                onSelectSuggestion: _selectLeftSuggestion,
+                stats: _leftStats,
+                theme: theme,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          const Padding(
-            padding: EdgeInsets.only(top: 44),
-            child: Column(
-              children: [
-                Text(
-                  "Compare",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: theme.dividerColor),
                 ),
-              ],
+                child: Icon(
+                  Icons.compare_arrows_rounded,
+                  color: theme.primaryColor,
+                  size: 28,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _sidePanel(
-              sideTitle: "Property B",
-              controller: _rightController,
-              onChanged: _onRightChanged,
-              onSearch: _runRightStatsSearch,
-              onClear: _clearRight,
-              loading: _rightLoadingStats,
-              status: _rightStatus,
-              suggestions: _rightSuggestions,
-              onSelectSuggestion: _selectRightSuggestion,
-              stats: _rightStats,
-              theme: theme,
+            Expanded(
+              child: _sidePanel(
+                sideTitle: "Property Market B",
+                controller: _rightController,
+                onChanged: _onRightChanged,
+                onSearch: _runRightStatsSearch,
+                onClear: _clearRight,
+                loading: _rightLoadingStats,
+                status: _rightStatus,
+                suggestions: _rightSuggestions,
+                onSelectSuggestion: _selectRightSuggestion,
+                stats: _rightStats,
+                theme: theme,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
